@@ -63,7 +63,7 @@ class RandDb(object):
     def add_entry(self, dt, user, roll, valid=None):
         if valid == None:
             # test the existence of a roll
-            valid = not already_rolled(dt, user)
+            valid = not self.already_rolled(dt, user)
         # userpk = self.get_or_create_user(user)
         self.insert('rolls', [user, dt, roll, valid])
 
