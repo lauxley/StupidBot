@@ -1,0 +1,6 @@
+.hg/
+*~
+.hgignore
+*.pyc
+*.old
+env/
