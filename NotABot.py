@@ -14,6 +14,7 @@ class CompliantDecodingLineBuffer(DecodingLineBuffer):
     errors = 'replace'
 
 class StupidIrcBot(SingleServerIRCBot):
+    # TODO: move this to a setting file
     NICK = u'NotABot'
     REALNAME = u'Not a Bot'
     SERVER = u'euroserv.fr.quakenet.org'
@@ -34,7 +35,7 @@ class StupidIrcBot(SingleServerIRCBot):
         }
 
     REGEXPS = {
-        r'(?P<user>[^ ]+) obtient un (?P<roll>\d{1,3}) \(1-100\)' : 'trajrand_handler',
+        r'(?P<user>[^ ]+)? ?obtient un (?P<roll>\d{1,3}) \(1-100\)' : 'trajrand_handler',
         # add a taunt handler
         }
 
@@ -153,7 +154,7 @@ class StupidIrcBot(SingleServerIRCBot):
 
     def users_hanler(self, serv, ev):
         try:
-            like = ev.arguments.split(" ")[1]
+            like = ev.arguments[0].split(" ")[1]
         except IndexError:
             like = None
         if not self.get_username_from_source(ev.source) in self.ADMINS:
@@ -164,6 +165,8 @@ class StupidIrcBot(SingleServerIRCBot):
     # REGEXPS HANDLERS
     def trajrand_handler(self, match, serv, ev):
         user = m.group('user')
+        if not user: #damn Traj, need a special rule just for him
+            user = 'Traj'
         roll = m.group('roll')
         self.db.add_entry(datetime.datetime.now(), user, roll)
         return ev.target, None
