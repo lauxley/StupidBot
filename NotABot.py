@@ -2,6 +2,7 @@
 import logging
 import random
 import datetime
+import re
 
 from irc.client import DecodingLineBuffer
 from irc.bot import SingleServerIRCBot
@@ -107,7 +108,7 @@ class StupidIrcBot(SingleServerIRCBot):
     def rand_handler(self, serv, ev):
         roll = random.randint(1, 100)
         self.db.add_entry(datetime.datetime.now(), ev.source, roll)
-        return ev.target, '%s rolled a %s' % (ev.source, str(roll))
+        return ev.target, '%s rolled a %s' % (get_username_from_source(ev.source), str(roll))
 
     def ping_handler(self, serv, ev):
         return ev.target, u'pong'

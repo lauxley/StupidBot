@@ -52,7 +52,7 @@ class RandDb(object):
     #     return u["pk"] 
 
     def sql_dt(self, dt):
-        return "%s %s" % (datetime.datetime.strftime(day, '%Y-%b-%d %H:%M'))
+        return datetime.datetime.strftime(dt, '%Y-%b-%d %H:%M')
 
     def already_rolled(self, dt, user):
         cur = self.conn.cursor()
