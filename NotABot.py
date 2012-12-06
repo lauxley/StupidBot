@@ -84,7 +84,7 @@ class StupidIrcBot(SingleServerIRCBot):
                         pass
                 else:
                     for regexp in self.REGEXPS.keys():
-                        m = re.match(msg, regexp)
+                        m = re.match(regexp, msg)
                         if m:
                             target, response = getattr(self, self.REGEXPS[regexp])(m, serv, ev)
                             # break # should we ?
@@ -111,7 +111,7 @@ class StupidIrcBot(SingleServerIRCBot):
 
     def rand_handler(self, serv, ev):
         roll = random.randint(1, 100)
-        self.db.add_entry(datetime.datetime.now(), ev.source, roll)
+        self.db.add_entry(datetime.datetime.now(), self.get_username_from_source(ev.source), roll)
         return ev.target, '%s rolled a %s' % (self.get_username_from_source(ev.source), str(roll))
 
     def ping_handler(self, serv, ev):

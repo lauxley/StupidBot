@@ -32,7 +32,8 @@ class RandDb(object):
             cols = '`user`, `roll_on`, `value`, `valid`'
         else:
             return
-        cur.execute("INSERT INTO `%s` (%s) VALUES (%s);" % (table, cols, ','.join(['?' for v in values])), values)
+        sql = "INSERT INTO `%s` (%s) VALUES (%s);" % (table, cols, ','.join(['?' for v in values]))
+        cur.execute(sql, values)
         self.conn.commit()
 
     def make(self):
@@ -52,11 +53,12 @@ class RandDb(object):
     #     return u["pk"] 
 
     def sql_dt(self, dt):
-        return datetime.datetime.strftime(dt, '%Y-%b-%d %H:%M')
+        return datetime.datetime.strftime(dt, '%Y-%m-%d %H:%M')
 
     def already_rolled(self, dt, user):
         cur = self.conn.cursor()
-        cur.execute("SELECT * FROM rolls WHERE roll_on=? AND user=? LIMIT 1;", [self.sql_dt(dt), user])
+        sql = "SELECT * FROM rolls WHERE date(roll_on)=date(?) AND user=? LIMIT 1;"
+        cur.execute(sql, [self.sql_dt(dt), user])
         if cur.fetchone():
             return True
         return False
