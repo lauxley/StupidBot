@@ -17,7 +17,7 @@ trusted_bots = ['@Traj', '+Traj', '@Traj-', '+Traj-', '@Jeeju-Traj', '@Jeeju', '
 # --- Day changed Tue Dec 25 2007
 r_date = r'--- Day changed (?P<date>.{3} .{3} \d{2} \d{4})'
 # 09:03 <@Traj> Rayas obtient un 15 (1-100)
-r_roll = r'(?P<hour>\d{2}:\d{2}) <(?P<bot>[^ ]+)> (?P<user>[^ ]+) obtient un (?P<roll>\d{1,3}) \(1-100\)'
+r_roll = r'(?P<hour>\d{2}:\d{2}) <(?P<bot>[^ ]+)> (?P<user> [^ ]+)? ?obtient un (?P<roll>\d{1,3}) \(1-100\)'
 
 def add_entry(day, hour, user, roll, valid):
     # add_entry(self, datetime, user, roll, valid)
@@ -43,6 +43,9 @@ for line in open(filename, 'r'):
         hour = datetime.datetime.strptime(dr.group('hour'), '%H:%M') #int(dr.group('hour').split(':')[0]), int(dr.group('hour').split(':')[1])
         bot = dr.group('bot')
         user = dr.group('user')
+        if user == None:
+            user = 'Traj'
+
         roll = dr.group('roll')
         if user in today_users:
             is_first = False

@@ -3,6 +3,7 @@ import logging
 import random
 import datetime
 import re
+import time
 
 from irc.client import DecodingLineBuffer
 from irc.bot import SingleServerIRCBot
@@ -92,6 +93,7 @@ class StupidIrcBot(SingleServerIRCBot):
 
     def send(self, serv, target, msg):
         while len(msg) > self.MAX_MSG_LEN:
+            time.sleep(1) # so we don't get disco for excess flood
             ind = msg.rfind(" ", 0, self.MAX_MSG_LEN)
             buff = msg[ind:]
             serv.privmsg(target, msg[:ind])
@@ -108,7 +110,7 @@ class StupidIrcBot(SingleServerIRCBot):
     def rand_handler(self, serv, ev):
         roll = random.randint(1, 100)
         self.db.add_entry(datetime.datetime.now(), ev.source, roll)
-        return ev.target, '%s rolled a %s' % (get_username_from_source(ev.source), str(roll))
+        return ev.target, '%s rolled a %s' % (self.get_username_from_source(ev.source), str(roll))
 
     def ping_handler(self, serv, ev):
         return ev.target, u'pong'
@@ -121,7 +123,7 @@ class StupidIrcBot(SingleServerIRCBot):
                 return ev.target, "Bad arguments: the command should be like !merge Joe Bill, Bill will disapear in favor of Joe"
             else:
                 self.db.merge(user1, user2)
-                return ev.target, "%s was merged in favor of %s" % (user1, user2)
+                return ev.target, "%s was merged in favor of %s" % (user2, user1)
         else:
             return ev.target, self.get_need_to_be_admins()
 
@@ -136,7 +138,13 @@ class StupidIrcBot(SingleServerIRCBot):
             return ev.target, u'%s rolled %s times, and got %s on average.' % (user, r[1], round(r[0], 3))
         else:
             return ev.target, u'No stats for this user'
-    
+
+    def min_handler(self, serv, ev):
+        pass
+
+    def max_handler(self, serv, ev):
+        pass
+
     def get_username_from_source(self, source):
         try:
             return source.split("!")[0]
@@ -144,10 +152,14 @@ class StupidIrcBot(SingleServerIRCBot):
             return ev.source
 
     def users_hanler(self, serv, ev):
+        try:
+            like = ev.arguments.split(" ")[1]
+        except IndexError:
+            like = None
         if not self.get_username_from_source(ev.source) in self.ADMINS:
             return ev.target, self.get_need_to_be_admins()
         else:
-            return ev.target, u', '.join(self.db.get_users())
+            return ev.target, u', '.join(self.db.get_users(like))
 
     # REGEXPS HANDLERS
     def trajrand_handler(self, match, serv, ev):

@@ -84,9 +84,12 @@ class RandDb(object):
         else:
             return None
     
-    def get_users(self):
+    def get_users(self, like=None):
         cur = self.conn.cursor()
-        cur.execute("SELECT DISTINCT(user) FROM rolls")
+        if like:
+            cur.execute("SELECT DISTINCT(user) FROM rolls")
+        else:
+            cur.execute("SELECT DISTINCT(user) FROM rolls WHERE user LIKE ?", ('%'+like+'%',))
         return [u[0] for u in cur.fetchall()]
 
     def merge(self, user1, user2):
