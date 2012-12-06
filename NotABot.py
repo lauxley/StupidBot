@@ -28,7 +28,8 @@ class StupidIrcBot(SingleServerIRCBot):
         'ping': 'ping_handler',
         'merge': 'merge_handler',
         'stats': 'stats_handler',
-        'users': 'users_hanler',
+        'users': 'users_handler',
+        'ladder': 'ladder_handler',
         #TBI:
         # 'search'
         # 'max', 'min'
@@ -152,7 +153,7 @@ class StupidIrcBot(SingleServerIRCBot):
         except IndexError:
             return ev.source
 
-    def users_hanler(self, serv, ev):
+    def users_handler(self, serv, ev):
         try:
             like = ev.arguments[0].split(" ")[1]
         except IndexError:
@@ -162,12 +163,28 @@ class StupidIrcBot(SingleServerIRCBot):
         else:
             return ev.target, u', '.join(self.db.get_users(like))
 
+    def ladder_handler(self, serv, ev):
+        """
+        !ladder
+        !ladder 50 #minimum number of rolls
+
+        db.get_ladder returns :
+        [('user1', '48.392'), ('user2', '47.045')]
+        """
+        try:
+            # TODO: make a method to split commands and arguments
+            min_rolls = int(ev.arguments[0].split(" ")[1])
+        except (IndexError, ValueError),e:
+            min_rolls = 10 # default value
+        ranks = self.db.get_ladder(min_rolls)
+        return ev.target, ' - '.join(['#%d %s %d (%sx)' % (r[0]+1, r[1][2], round(r[1][0], 3), r[1][1]) for r in enumerate(ranks)])
+
     # REGEXPS HANDLERS
     def trajrand_handler(self, match, serv, ev):
-        user = m.group('user')
+        user = match.group('user')
         if not user: #damn Traj, need a special rule just for him
             user = 'Traj'
-        roll = m.group('roll')
+        roll = match.group('roll')
         self.db.add_entry(datetime.datetime.now(), user, roll)
         return ev.target, None
 

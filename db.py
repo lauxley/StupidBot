@@ -56,7 +56,7 @@ class RandDb(object):
 
     def already_rolled(self, dt, user):
         cur = self.conn.cursor()
-        cur.execute("SELECT * FROM rolls WHERE roll_on=? AND user=? LIMIT 1", [self.sql_dt(dt), user])
+        cur.execute("SELECT * FROM rolls WHERE roll_on=? AND user=? LIMIT 1;", [self.sql_dt(dt), user])
         if cur.fetchone():
             return True
         return False
@@ -77,7 +77,7 @@ class RandDb(object):
 
     def get_stats(self, user):
         cur = self.conn.cursor()
-        cur.execute("SELECT AVG(value) as a, COUNT(*) as c FROM rolls WHERE valid=1 AND user=?", [user,])
+        cur.execute("SELECT AVG(value) as a, COUNT(*) as c FROM rolls WHERE valid=1 AND user=?;", [user,])
         r = cur.fetchone()
         if r:
             return r
@@ -87,9 +87,9 @@ class RandDb(object):
     def get_users(self, like=None):
         cur = self.conn.cursor()
         if like:
-            cur.execute("SELECT DISTINCT(user) FROM rolls")
+            cur.execute("SELECT DISTINCT(user) FROM rolls;")
         else:
-            cur.execute("SELECT DISTINCT(user) FROM rolls WHERE user LIKE ?", ('%'+like+'%',))
+            cur.execute("SELECT DISTINCT(user) FROM rolls WHERE user LIKE ?;", ('%'+like+'%',))
         return [u[0] for u in cur.fetchall()]
 
     def merge(self, user1, user2):
@@ -98,3 +98,8 @@ class RandDb(object):
         self.conn.commit()
         # we should try to invalidate some rolls there if an user changed his nick and rerolled
         # or not, im lazy
+
+    def get_ladder(self, min_rolls):
+        cur = self.conn.cursor()
+        cur.execute("SELECT AVG(value) as a, COUNT(value) as c, user from rolls WHERE valid=1 GROUP BY user HAVING c > ? ORDER BY a DESC LIMIT 10;", (min_rolls, ))
+        return cur.fetchall()
