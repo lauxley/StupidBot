@@ -9,6 +9,7 @@ sqlite> CREATE TABLE rolls (pk INT AUTO_INCREMENT PRIMARY KEY,
 """
 
 import sqlite3
+import datetime
 
 class RandDb(object):
     db_file = "rand.db"

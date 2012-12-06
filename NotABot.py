@@ -15,7 +15,7 @@ class StupidIrcBot(SingleServerIRCBot):
     NICK = u'NotABot'
     REALNAME = u'Not a Bot'
     SERVER = u'euroserv.fr.quakenet.org'
-    START_CHANNELS = ['#testenbois', ]
+    START_CHANNELS = ['#throkferoth', ]
     ADMINS = ['lox|samta', 'Traj']
     MAX_MSG_LEN = 450 #its 512 but we need some space for the command arguments
 
