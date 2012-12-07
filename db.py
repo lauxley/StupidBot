@@ -98,7 +98,7 @@ class RandDb(object):
             dt = datetime.date(2000, 1, 1)
         if not min_rolls:
             min_rolls = 1
-        sql = u"SELECT AVG(value) as a, COUNT(value) as c, user from rolls WHERE valid=1 AND roll_on >= ? GROUP BY user HAVING c > ? ORDER BY a DESC LIMIT 10;"
+        sql = u"SELECT AVG(value) as a, COUNT(value) as c, user from rolls WHERE valid=1 AND roll_on >= ? GROUP BY user HAVING c >= ? ORDER BY a DESC LIMIT 10;"
         cur.execute(sql, (self.sql_dt(dt), min_rolls))
         return cur.fetchall()
     
@@ -110,9 +110,10 @@ class RandDb(object):
             cur.execute("SELECT DISTINCT(user) FROM rolls;")            
         return [u[0] for u in cur.fetchall()]
 
-    def merge(self, user1, user2):
+    def merge(self, user1, *users):
         cur = self.conn.cursor()
-        cur.execute("UPDATE rolls SET user=? WHERE user=?", [user1, user2])
+        for user in users:
+            cur.execute("UPDATE rolls SET user=? WHERE user=?", [user1, user])
         self.conn.commit()
         # we should try to invalidate some rolls there if an user changed his nick and rerolled
         # or not, im lazy

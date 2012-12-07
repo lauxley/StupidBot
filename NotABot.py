@@ -15,7 +15,7 @@ class CompliantDecodingLineBuffer(DecodingLineBuffer):
 
 class StupidIrcBot(SingleServerIRCBot):
     # TODO: move this to a setting file
-    VERSION = '0.1'
+    VERSION = '0.2'
     NICK = u'NotABot'
     REALNAME = u'Not a Bot'
     SERVER = u'euroserv.fr.quakenet.org'
@@ -160,17 +160,18 @@ class StupidIrcBot(SingleServerIRCBot):
     def merge_handler(self, serv, ev, *args):
         if self.get_username_from_source(ev.source) in self.ADMINS:
             try:
-                s, user1, user2 = ev.arguments[0].split(" ")
+                cmd, user1, users = ev.arguments[0].split(" ", 2)
             except ValueError, e:
                 return ev.target, "Bad arguments: the command should be like !merge Joe Bill, Bill will disapear in favor of Joe"
             else:
-                self.db.merge(user1, user2)
-                return ev.target, "%s was merged in favor of %s" % (user2, user1)
+                self.db.merge(user1, *users.split(', '))
+                return ev.target, "merge in favor of %s" % user1
         else:
             return ev.target, self.get_need_to_be_admins()
-    merge_handler.help = u"""!merge player1 player2: Allocate the stats of player2 to player1, only a trusted user can do this."""
+    merge_handler.help = u"""!merge player player1,player2,player3: Allocate the stats of playerX to 'player', only a trusted user can do this."""
 
     def stats_handler(self, serv, ev, *args):
+        # TODO: add min, max, nombre de 100, de 1 ...
         user, dt = self.get_stats_args(ev, *args)
         if not user:
             user = self.get_username_from_source(ev.source)
