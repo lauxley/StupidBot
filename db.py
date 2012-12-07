@@ -77,21 +77,37 @@ class RandDb(object):
         self.conn.commit()
 
 
-    def get_stats(self, user):
+    def get_stats(self, user, dt):
         cur = self.conn.cursor()
-        cur.execute("SELECT AVG(value) as a, COUNT(*) as c FROM rolls WHERE valid=1 AND user=?;", [user,])
+        sql = "SELECT AVG(value) as a, COUNT(*) as c FROM rolls WHERE valid=1 AND user=?"
+        if dt:
+            print dt
+            sql = sql + "AND roll_on >= ?"
+            cur.execute(sql, [user, self.sql_dt(dt)])
+        else:
+            cur.execute(sql, [user,])            
         r = cur.fetchone()
         if r:
             return r
         else:
             return None
+
+    def get_ladder(self, min_rolls, dt):        
+        cur = self.conn.cursor()
+        if not dt:
+            dt = datetime.date(2000, 1, 1)
+        if not min_rolls:
+            min_rolls = 1
+        sql = u"SELECT AVG(value) as a, COUNT(value) as c, user from rolls WHERE valid=1 AND roll_on >= ? GROUP BY user HAVING c > ? ORDER BY a DESC LIMIT 10;"
+        cur.execute(sql, (self.sql_dt(dt), min_rolls))
+        return cur.fetchall()
     
     def get_users(self, like=None):
         cur = self.conn.cursor()
         if like:
-            cur.execute("SELECT DISTINCT(user) FROM rolls;")
-        else:
             cur.execute("SELECT DISTINCT(user) FROM rolls WHERE user LIKE ?;", ('%'+like+'%',))
+        else:
+            cur.execute("SELECT DISTINCT(user) FROM rolls;")            
         return [u[0] for u in cur.fetchall()]
 
     def merge(self, user1, user2):
@@ -100,8 +116,3 @@ class RandDb(object):
         self.conn.commit()
         # we should try to invalidate some rolls there if an user changed his nick and rerolled
         # or not, im lazy
-
-    def get_ladder(self, min_rolls):
-        cur = self.conn.cursor()
-        cur.execute("SELECT AVG(value) as a, COUNT(value) as c, user from rolls WHERE valid=1 GROUP BY user HAVING c > ? ORDER BY a DESC LIMIT 10;", (min_rolls, ))
-        return cur.fetchall()
