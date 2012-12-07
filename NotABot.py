@@ -9,13 +9,14 @@ from irc.client import DecodingLineBuffer
 from irc.bot import SingleServerIRCBot
 
 from db import RandDb
+import cleverbot
 
 class CompliantDecodingLineBuffer(DecodingLineBuffer):
     errors = 'replace'
 
 class StupidIrcBot(SingleServerIRCBot):
     # TODO: move this to a setting file
-    VERSION = '0.2'
+    VERSION = '0.3'
     NICK = u'NotABot'
     REALNAME = u'Not a Bot'
     SERVER = u'euroserv.fr.quakenet.org'
@@ -35,11 +36,15 @@ class StupidIrcBot(SingleServerIRCBot):
         'ladder': 'ladder_handler',
         #TBI:
         # 'search'
-        # 'max', 'min'
+        # 'google'
+        # 'log' ? display a line from an old log
+        # answer to direct highligh cleverbot ?
+        # 'meteo' [town] [now|today|tomorrow]
         }
 
     REGEXPS = {
         r'(?P<user>[^ ]+)? ?obtient un (?P<roll>\d{1,3}) \(1-100\)' : 'trajrand_handler',
+        r'(?P<me>%s)(?P<msg>.*)' % NICK : 'highligh_handler',
         # add a taunt handler
         }
 
@@ -52,6 +57,7 @@ class StupidIrcBot(SingleServerIRCBot):
         self.ircobj.add_global_handler("all_events", self.global_handler)
 
         self.db = RandDb()
+        self.brain = cleverbot.Session()
         
     def on_welcome(self, serv, ev):
         # changing the default Buffer to ensure no encoding error
@@ -177,7 +183,7 @@ class StupidIrcBot(SingleServerIRCBot):
             user = self.get_username_from_source(ev.source)
         r = self.db.get_stats(user, dt)
         if r[0]:
-            return ev.target, u'%s rolled %s times, and got %s on average.' % (user, r[1], round(r[0], 3))
+            return ev.target, u'%s rolled %s times, and got %s on average. min: %s, max: %s.' % (user, r[1], round(r[0], 3), r[2], r[3])
         else:
             return ev.target, u'No stats for this user'
     stats_handler.help = u"""!stats [player1] [today|week|month|year|DDMMYYYY]: display the rand stats of a given user, or you if no username is given."""
@@ -222,6 +228,8 @@ class StupidIrcBot(SingleServerIRCBot):
         self.db.add_entry(datetime.datetime.now(), user, roll)
         return ev.target, None
 
+    def highligh_handler(self, match, serv, ev):
+        return ev.target, self.brain.Ask(match.group('msg'))
 
 bot = StupidIrcBot()
 bot.start()

@@ -79,13 +79,10 @@ class RandDb(object):
 
     def get_stats(self, user, dt):
         cur = self.conn.cursor()
-        sql = "SELECT AVG(value) as a, COUNT(*) as c FROM rolls WHERE valid=1 AND user=?"
-        if dt:
-            print dt
-            sql = sql + "AND roll_on >= ?"
-            cur.execute(sql, [user, self.sql_dt(dt)])
-        else:
-            cur.execute(sql, [user,])            
+        if not dt:
+            dt = datetime.datetime(2000, 1, 1) # ugly
+        sql = "SELECT AVG(value) as a, COUNT(*) as c, MIN(value) as min, MAX(value) as max FROM rolls WHERE valid=1 AND roll_on >= ? GROUP BY user HAVING user = ?"
+        cur.execute(sql, [self.sql_dt(dt), user])
         r = cur.fetchone()
         if r:
             return r
@@ -95,7 +92,7 @@ class RandDb(object):
     def get_ladder(self, min_rolls, dt):        
         cur = self.conn.cursor()
         if not dt:
-            dt = datetime.date(2000, 1, 1)
+            dt = datetime.date(2000, 1, 1) # ugly
         if not min_rolls:
             min_rolls = 1
         sql = u"SELECT AVG(value) as a, COUNT(value) as c, user from rolls WHERE valid=1 AND roll_on >= ? GROUP BY user HAVING c >= ? ORDER BY a DESC LIMIT 10;"
