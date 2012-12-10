@@ -22,7 +22,7 @@ class StupidIrcBot(SingleServerIRCBot):
     # commands modes : ANY | PUBLIC | PRIVATE : tells if the bot will respond to commands on a private msg or a public channel
     # cleanup, mixins cleverbot randbot etc
 
-    VERSION = '0.3.1'
+    VERSION = '0.4'
     MAX_MSG_LEN = 450 #its 512 but we need some space for the command arguments
     r_date_fr = r'(?P<day>[0-3][0-9])(?P<month>[0-1][0-9])(?P<year>[0-9]{4})'
 
