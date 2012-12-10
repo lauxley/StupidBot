@@ -16,6 +16,10 @@ class CompliantDecodingLineBuffer(DecodingLineBuffer):
 
 class StupidIrcBot(SingleServerIRCBot):
     # TODO: move this to a setting file
+    # TODO : settings, Logging, Authentification, HgBot, GitBot
+    # commands modes : ANY | PUBLIC | PRIVATE : tells if the bot will respond to commands on a private msg or a public channel
+    # cleanup, mixins cleverbot randbot etc
+
     VERSION = '0.3'
     NICK = u'NotABot'
     REALNAME = u'Not a Bot'
@@ -44,8 +48,7 @@ class StupidIrcBot(SingleServerIRCBot):
 
     REGEXPS = {
         r'(?P<user>[^ ]+)? ?obtient un (?P<roll>\d{1,3}) \(1-100\)' : 'trajrand_handler',
-        r'(?P<me>%s)(?P<msg>.*)' % NICK : 'highligh_handler',
-        # add a taunt handler
+        r'(?P<me>%s):?(?P<msg>.*)' % NICK : 'highligh_handler',
         }
 
     #won't appear in help
@@ -92,7 +95,7 @@ class StupidIrcBot(SingleServerIRCBot):
                         target, response = getattr(self, self.COMMANDS[cmd])(serv, ev, *arguments)
 
                     except KeyError:
-                        # no a valid command
+                        # not a valid command
                         pass
                 else:
                     for regexp in self.REGEXPS.keys():
@@ -182,7 +185,7 @@ class StupidIrcBot(SingleServerIRCBot):
         if not user:
             user = self.get_username_from_source(ev.source)
         r = self.db.get_stats(user, dt)
-        if r[0]:
+        if r and r[0]:
             return ev.target, u'%s rolled %s times, and got %s on average. min: %s, max: %s.' % (user, r[1], round(r[0], 3), r[2], r[3])
         else:
             return ev.target, u'No stats for this user'
@@ -229,7 +232,7 @@ class StupidIrcBot(SingleServerIRCBot):
         return ev.target, None
 
     def highligh_handler(self, match, serv, ev):
-        return ev.target, self.brain.Ask(match.group('msg'))
+        return ev.target, self.brain.Ask(match.group('msg').encode('ascii', 'replace'))
 
 bot = StupidIrcBot()
 bot.start()
