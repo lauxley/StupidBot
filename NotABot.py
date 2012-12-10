@@ -1,31 +1,28 @@
 #! -*- coding: utf-8 -*-
 import logging
+import logging.handlers
 import random
 import datetime
 import re
 import time
+import os
 
 from irc.client import DecodingLineBuffer
 from irc.bot import SingleServerIRCBot
 
 from db import RandDb
 import cleverbot
+import settings
 
 class CompliantDecodingLineBuffer(DecodingLineBuffer):
     errors = 'replace'
 
 class StupidIrcBot(SingleServerIRCBot):
-    # TODO: move this to a setting file
-    # TODO : settings, Logging, Authentification, HgBot, GitBot
+    # TODO : Logging, Authentification, HgBot, GitBot
     # commands modes : ANY | PUBLIC | PRIVATE : tells if the bot will respond to commands on a private msg or a public channel
     # cleanup, mixins cleverbot randbot etc
 
-    VERSION = '0.3'
-    NICK = u'NotABot'
-    REALNAME = u'Not a Bot'
-    SERVER = u'euroserv.fr.quakenet.org'
-    START_CHANNELS = ['#throkferoth', ]
-    ADMINS = ['lox|samta', 'Traj']
+    VERSION = '0.3.1'
     MAX_MSG_LEN = 450 #its 512 but we need some space for the command arguments
     r_date_fr = r'(?P<day>[0-3][0-9])(?P<month>[0-1][0-9])(?P<year>[0-9]{4})'
 
@@ -48,26 +45,58 @@ class StupidIrcBot(SingleServerIRCBot):
 
     REGEXPS = {
         r'(?P<user>[^ ]+)? ?obtient un (?P<roll>\d{1,3}) \(1-100\)' : 'trajrand_handler',
-        r'(?P<me>%s):?(?P<msg>.*)' % NICK : 'highligh_handler',
+        r'(?P<me>%s):?(?P<msg>.*)' % settings.NICK : 'highligh_handler',
         }
 
     #won't appear in help
     HIDDEN_COMMANDS = []
 
     def __init__(self, *args, **kwargs):
-        super(StupidIrcBot, self).__init__([(self.SERVER,),], self.NICK, self.REALNAME, *args, **kwargs)
+        super(StupidIrcBot, self).__init__([(settings.SERVER,),], settings.NICK, settings.REALNAME, *args, **kwargs)
+
+        self._init_loggers()
 
         self.ircobj.add_global_handler("all_events", self.global_handler)
 
         self.db = RandDb()
         self.brain = cleverbot.Session()
-        
+    
+    def _init_loggers(self):
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+        if not os.path.isdir(settings.LOG_DIR):
+            os.mkdir(os.path.join(os.path.dirname(__file__),settings.LOG_DIR))
+
+        msg_logger = logging.getLogger('msgslog')
+        msg_logger.setLevel(logging.DEBUG)
+        handler = logging.handlers.TimedRotatingFileHandler(os.path.join(settings.LOG_DIR, 'daily.log'), when='midnight')
+        handler.setFormatter(formatter)
+        msg_logger.addHandler(handler)
+        self.msg_logger = msg_logger
+
+        error_logger = logging.getLogger('errorlog')
+        error_logger.setLevel(logging.WARNING)
+        handler = logging.FileHandler(os.path.join(settings.LOG_DIR, 'error.log'))
+        handler.setFormatter(formatter)
+        error_logger.addHandler(handler)
+        self.error_logger = error_logger
+
+    def authentify(self, serv):
+        """
+        this is highly server specific !
+        """
+        if hasattr(settings, 'AUTH_ENABLE') and settings.AUTH_ENABLE == True:
+            serv.privmsg(settings.AUTH_BOT, "AUTH %s %s" % (settings.AUTH_LOGIN, settings.AUTH_PASSWORD))
+            # TODO : we should try to catch the response and log it
+
     def on_welcome(self, serv, ev):
         # changing the default Buffer to ensure no encoding error
         self.connection.buffer = CompliantDecodingLineBuffer()
 
-        for chan in self.START_CHANNELS:
+        for chan in settings.START_CHANNELS:
             self.connection.join(chan)
+
+        self.authentify(serv)
 
     def global_handler(self, serv, ev):
         """
@@ -79,7 +108,9 @@ class StupidIrcBot(SingleServerIRCBot):
         - author
         - desc
         """
+        
         try:
+            self.msg_logger.info('%s %s>%s: %s' % (ev.type, ev.source, ev.target, ev.arguments))
             response = None
             if ev.type == "pubmsg":
                 msg = ev.arguments[0]
@@ -94,9 +125,8 @@ class StupidIrcBot(SingleServerIRCBot):
                             arguments = []
                         target, response = getattr(self, self.COMMANDS[cmd])(serv, ev, *arguments)
 
-                    except KeyError:
-                        # not a valid command
-                        pass
+                    except KeyError, e:
+                        self.error_logger.warning('Invalid command : %s' % e)
                 else:
                     for regexp in self.REGEXPS.keys():
                         m = re.match(regexp, msg)
@@ -105,6 +135,9 @@ class StupidIrcBot(SingleServerIRCBot):
                             # break # should we ?
                 if response:
                     self.send(serv, target, response)
+            else:
+                # TODO: handle privmsgs
+                pass
         except IndexError:
             pass
 
@@ -118,7 +151,7 @@ class StupidIrcBot(SingleServerIRCBot):
         serv.privmsg(target, msg)
 
     def get_need_to_be_admins(self):
-        return "Sorry, you can't do that by yourself, ask %s" % (" or ".join(self.ADMINS))
+        return "Sorry, you can't do that by yourself, ask %s" % (" or ".join(settings.ADMINS))
 
     def get_username_from_source(self, source):
         try:
@@ -167,7 +200,7 @@ class StupidIrcBot(SingleServerIRCBot):
     ping_handler.help = u"""!ping: pong?"""
 
     def merge_handler(self, serv, ev, *args):
-        if self.get_username_from_source(ev.source) in self.ADMINS:
+        if self.get_username_from_source(ev.source) in settings.ADMINS:
             try:
                 cmd, user1, users = ev.arguments[0].split(" ", 2)
             except ValueError, e:
@@ -207,7 +240,7 @@ class StupidIrcBot(SingleServerIRCBot):
             like = args[0]
         except IndexError:
             like = None
-        if not self.get_username_from_source(ev.source) in self.ADMINS:
+        if not self.get_username_from_source(ev.source) in settings.ADMINS:
             return ev.target, self.get_need_to_be_admins()
         else:
             users = self.db.get_users(like)

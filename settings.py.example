@@ -1,0 +1,10 @@
+#! -*- coding: utf-8 -*-
+"""
+rename to settings.py once you overrided all the settings
+"""
+NICK = u'NotABot'
+REALNAME = u'Not a Bot'
+SERVER = u'euroserv.fr.quakenet.org'
+START_CHANNELS = ['#throkferoth', ]
+ADMINS = ['lox|samta', 'Traj']
+

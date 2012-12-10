@@ -4,3 +4,5 @@
 *.pyc
 *.old
 env/
+settings.py
+logs/
