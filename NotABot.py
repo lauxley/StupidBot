@@ -1,271 +1,29 @@
 #! -*- coding: utf-8 -*-
-import logging
-import logging.handlers
-import random
-import datetime
-import re
-import time
-import os
-
-from irc.client import DecodingLineBuffer
-from irc.bot import SingleServerIRCBot
-
-from db import RandDb
-import cleverbot
 import settings
 
-class CompliantDecodingLineBuffer(DecodingLineBuffer):
-    errors = 'replace'
+from basebot import BaseIrcBot
+from rand.randbot import RandBotMixin
+from cleverbot.cleverircbot import CleverBotMixin
 
-class StupidIrcBot(SingleServerIRCBot):
-    # TODO : Logging, Authentification, HgBot, GitBot
-    # commands modes : ANY | PUBLIC | PRIVATE : tells if the bot will respond to commands on a private msg or a public channel
-    # cleanup, mixins cleverbot randbot etc
-
-    VERSION = '0.4'
-    MAX_MSG_LEN = 450 #its 512 but we need some space for the command arguments
+class StupidIrcBot(BaseIrcBot, RandBotMixin, CleverBotMixin):
+    # TODO : HgBot, GitBot
+    VERSION = '0.5'
     r_date_fr = r'(?P<day>[0-3][0-9])(?P<month>[0-1][0-9])(?P<year>[0-9]{4})'
 
-    COMMANDS = {
-        'version': 'version_handler',
-        'help': 'help_handler',
-        'rand': 'rand_handler',
-        'ping': 'ping_handler',
-        'merge': 'merge_handler',
-        'stats': 'stats_handler',
-        'users': 'users_handler',
-        'ladder': 'ladder_handler',
-        #TBI:
-        # 'search'
-        # 'google'
-        # 'log' ? display a line from an old log
-        # answer to direct highligh cleverbot ?
-        # 'meteo' [town] [now|today|tomorrow]
-        }
-
-    REGEXPS = {
-        r'(?P<user>[^ ]+)? ?obtient un (?P<roll>\d{1,3}) \(1-100\)' : 'trajrand_handler',
-        r'(?P<me>%s):?(?P<msg>.*)' % settings.NICK : 'highligh_handler',
-        }
-
-    #won't appear in help
-    HIDDEN_COMMANDS = []
-
-    def __init__(self, *args, **kwargs):
-        super(StupidIrcBot, self).__init__([(settings.SERVER,),], settings.NICK, settings.REALNAME, *args, **kwargs)
-
-        self._init_loggers()
-
-        self.ircobj.add_global_handler("all_events", self.global_handler)
-
-        self.db = RandDb()
-        self.brain = cleverbot.Session()
-    
-    def _init_loggers(self):
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-
-        if not os.path.isdir(settings.LOG_DIR):
-            os.mkdir(os.path.join(os.path.dirname(__file__),settings.LOG_DIR))
-
-        msg_logger = logging.getLogger('msgslog')
-        msg_logger.setLevel(logging.DEBUG)
-        handler = logging.handlers.TimedRotatingFileHandler(os.path.join(settings.LOG_DIR, 'daily.log'), when='midnight')
-        handler.setFormatter(formatter)
-        msg_logger.addHandler(handler)
-        self.msg_logger = msg_logger
-
-        error_logger = logging.getLogger('errorlog')
-        error_logger.setLevel(logging.WARNING)
-        handler = logging.FileHandler(os.path.join(settings.LOG_DIR, 'error.log'))
-        handler.setFormatter(formatter)
-        error_logger.addHandler(handler)
-        self.error_logger = error_logger
+    #TBI:
+    # 'search'
+    # 'google'
+    # 'log' ? display a line from an old log
+    # answer to direct highligh cleverbot ?
+    # 'meteo' [town] [now|today|tomorrow]
+    # poll bot
+    # currency
 
     def authentify(self, serv):
         """
         this is highly server specific !
         """
-        if hasattr(settings, 'AUTH_ENABLE') and settings.AUTH_ENABLE == True:
-            serv.privmsg(settings.AUTH_BOT, "AUTH %s %s" % (settings.AUTH_LOGIN, settings.AUTH_PASSWORD))
-            # TODO : we should try to catch the response and log it
-
-    def on_welcome(self, serv, ev):
-        # changing the default Buffer to ensure no encoding error
-        self.connection.buffer = CompliantDecodingLineBuffer()
-
-        for chan in settings.START_CHANNELS:
-            self.connection.join(chan)
-
-        self.authentify(serv)
-
-    def global_handler(self, serv, ev):
-        """
-        ev.arguments:
-        - rev
-        - node
-        - tags (space delimited)
-        - branch
-        - author
-        - desc
-        """
-        
-        try:
-            self.msg_logger.info('%s %s>%s: %s' % (ev.type, ev.source, ev.target, ev.arguments))
-            response = None
-            if ev.type == "pubmsg":
-                msg = ev.arguments[0]
-                if msg[0] == '!':
-                    try:
-                        l = msg[1:].split(' ')
-                        try:
-                            cmd, arguments = l[0], l[1:]
-                        except ValueError, e:
-                            # there is no arguments
-                            cmd = msg[1:]
-                            arguments = []
-                        target, response = getattr(self, self.COMMANDS[cmd])(serv, ev, *arguments)
-
-                    except KeyError, e:
-                        self.error_logger.warning('Invalid command : %s' % e)
-                else:
-                    for regexp in self.REGEXPS.keys():
-                        m = re.match(regexp, msg)
-                        if m:
-                            target, response = getattr(self, self.REGEXPS[regexp])(m, serv, ev)
-                            # break # should we ?
-                if response:
-                    self.send(serv, target, response)
-            else:
-                # TODO: handle privmsgs
-                pass
-        except IndexError:
-            pass
-
-    def send(self, serv, target, msg):
-        while len(msg) > self.MAX_MSG_LEN:
-            time.sleep(1) # so we don't get disco for excess flood
-            ind = msg.rfind(" ", 0, self.MAX_MSG_LEN)
-            buff = msg[ind:]
-            serv.privmsg(target, msg[:ind])
-            msg = buff
-        serv.privmsg(target, msg)
-
-    def get_need_to_be_admins(self):
-        return "Sorry, you can't do that by yourself, ask %s" % (" or ".join(settings.ADMINS))
-
-    def get_username_from_source(self, source):
-        try:
-            return source.split("!")[0]
-        except IndexError:
-            return source
-
-    def get_stats_args(self, ev, *args):
-        fa = dt = None
-        if len(args):
-            for i in range(0, len(args)):
-                if args[i] == "today":
-                    dt = datetime.date.today()
-                elif args[i] == "week":
-                    dt = datetime.date.today() - datetime.timedelta(days=7)
-                elif args[i] == "month":
-                    dt = datetime.date.today() - datetime.timedelta(days=31)
-                elif args[i] == "year":
-                    dt = datetime.date.today() - datetime.timedelta(days=365)
-                elif re.match(self.r_date_fr, args[i]):
-                    dt = datetime.datetime.strptime(args[i], '%d%m%Y')
-                elif i == 0:
-                    fa = args[0]
-
-        return fa, dt
-
-    # CMD HANDLERS
-    def help_handler(self, serv, ev, *args):
-        try:
-            cmd = args[0]
-        except IndexError,e:
-            msg = u"Here are the currently implemented commands : %s" % ', '.join(['!%s' %k for k in self.COMMANDS.keys() if k not in self.HIDDEN_COMMANDS])
-        else:
-            msg = getattr(self, '%s_handler' % cmd).help
-        return ev.target, msg
-    help_handler.help = u"""Display this help."""
-
-    def rand_handler(self, serv, ev, *args):
-        roll = random.randint(1, 100)
-        self.db.add_entry(datetime.datetime.now(), self.get_username_from_source(ev.source), roll)
-        return ev.target, '%s rolled a %s' % (self.get_username_from_source(ev.source), str(roll))
-    rand_handler.help = u"""!rand: Roll a number between 1 and 100, only one rand per day is taken into account in stats."""
-
-    def ping_handler(self, serv, ev, *args):
-        return ev.target, u'pong'
-    ping_handler.help = u"""!ping: pong?"""
-
-    def merge_handler(self, serv, ev, *args):
-        if self.get_username_from_source(ev.source) in settings.ADMINS:
-            try:
-                cmd, user1, users = ev.arguments[0].split(" ", 2)
-            except ValueError, e:
-                return ev.target, "Bad arguments: the command should be like !merge Joe Bill, Bill will disapear in favor of Joe"
-            else:
-                self.db.merge(user1, *users.split(', '))
-                return ev.target, "merge in favor of %s" % user1
-        else:
-            return ev.target, self.get_need_to_be_admins()
-    merge_handler.help = u"""!merge player player1,player2,player3: Allocate the stats of playerX to 'player', only a trusted user can do this."""
-
-    def stats_handler(self, serv, ev, *args):
-        # TODO: add min, max, nombre de 100, de 1 ...
-        user, dt = self.get_stats_args(ev, *args)
-        if not user:
-            user = self.get_username_from_source(ev.source)
-        r = self.db.get_stats(user, dt)
-        if r and r[0]:
-            return ev.target, u'%s rolled %s times, and got %s on average. min: %s, max: %s.' % (user, r[1], round(r[0], 3), r[2], r[3])
-        else:
-            return ev.target, u'No stats for this user'
-    stats_handler.help = u"""!stats [player1] [today|week|month|year|DDMMYYYY]: display the rand stats of a given user, or you if no username is given."""
-
-    def ladder_handler(self, serv, ev, *args):
-        """
-        db.get_ladder returns :
-        [('user1', '48.392'), ('user2', '47.045')]
-        """
-        minrolls, dt = self.get_stats_args(ev, *args)
-
-        ranks = self.db.get_ladder(minrolls, dt)
-        return ev.target, ' - '.join(['#%d %s %d (%sx)' % (r[0]+1, r[1][2], round(r[1][0], 3), r[1][1]) for r in enumerate(ranks)])
-    ladder_handler.help = u"""!ladder [today|week|month|year|DDMMYYYY]: display the ordered list of the best randers of the given period."""
-
-    def users_handler(self, serv, ev, *args):
-        try:
-            like = args[0]
-        except IndexError:
-            like = None
-        if not self.get_username_from_source(ev.source) in settings.ADMINS:
-            return ev.target, self.get_need_to_be_admins()
-        else:
-            users = self.db.get_users(like)
-            if users:
-                return ev.target, u', '.join(users)
-            else:
-                return ev.target, u'No users found with this filter.'
-    users_handler.help = u"""!users [filter]: display the list of the saved users, if 'filter' is set will display the list of users with 'filter' in their nick"""
-
-
-    def version_handler(self, serv, ev, *args):
-        return ev.target, u"version: %s" % self.VERSION
-    version_handler.help = u"""Display the bot version."""
-
-    # REGEXPS HANDLERS
-    def trajrand_handler(self, match, serv, ev):
-        user = match.group('user')
-        if not user: #damn Traj, need a special rule just for him
-            user = 'Traj'
-        roll = match.group('roll')
-        self.db.add_entry(datetime.datetime.now(), user, roll)
-        return ev.target, None
-
-    def highligh_handler(self, match, serv, ev):
-        return ev.target, self.brain.Ask(match.group('msg').encode('ascii', 'replace'))
+        serv.privmsg(settings.AUTH_BOT, "AUTH %s %s" % (settings.AUTH_LOGIN, settings.AUTH_PASSWORD))
 
 bot = StupidIrcBot()
 bot.start()

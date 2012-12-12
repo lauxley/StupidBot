@@ -37,8 +37,17 @@ class RandDb(object):
         self.conn.commit()
 
     def make(self):
-        # TODO
-        pass
+        # TODO: make a decorator to wrap sql methods and call this
+        # if we catch a sqlite3.OperationalError
+
+        sql = """CREATE TABLE rolls (pk INT AUTO_INCREMENT PRIMARY KEY,
+                            user VARCHAR(50) NOT NULL,
+                            roll_on DATETIME NOT NULL,
+                            value SMALLINT NOT NULL,
+                            valid TINYINT);"""
+        cur = self.conn.cursor()
+        cur.execute(sql)
+        self.conn.commit()
 
     # def get_or_create_user(self, user):
     #     cur = self.conn.cursor()
