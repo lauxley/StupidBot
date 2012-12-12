@@ -22,6 +22,8 @@ class RandBotMixin():
         r'(?P<user>[^ ]+)? ?obtient un (?P<roll>\d{1,3}) \(1-100\)' : 'trajrand_handler',
         }
 
+    r_date_fr = r'(?P<day>[0-3][0-9])(?P<month>[0-1][0-9])(?P<year>[0-9]{4})'
+
     def _init(self):
         self.db = RandDb()
 

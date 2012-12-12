@@ -13,6 +13,7 @@ class CompliantDecodingLineBuffer(DecodingLineBuffer):
 
 class BaseIrcBot(SingleServerIRCBot):
     # commands modes : ANY | PUBLIC | PRIVATE : tells if the bot will respond to commands on a private msg or a public channel
+    
     MAX_MSG_LEN = 450 #its 512 but we need some space for the command arguments
 
     COMMANDS = {

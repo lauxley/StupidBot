@@ -8,7 +8,6 @@ from cleverbot.cleverircbot import CleverBotMixin
 class StupidIrcBot(BaseIrcBot, RandBotMixin, CleverBotMixin):
     # TODO : HgBot, GitBot
     VERSION = '0.5'
-    r_date_fr = r'(?P<day>[0-3][0-9])(?P<month>[0-1][0-9])(?P<year>[0-9]{4})'
 
     #TBI:
     # 'search'
