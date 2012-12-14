@@ -89,23 +89,11 @@ class BaseIrcBot(SingleServerIRCBot):
         for chan in settings.START_CHANNELS:
             self.connection.join(chan)
 
-        if getattr(settings, 'AUTH_ENABLE', False):
-            self.authentify(serv)
-
-
-    def authentify(self, serv):
-        """
-        this is highly server specific !
-        thus needs to be overrided
-        """
-        pass
-
-
     def global_handler(self, serv, ev):        
         try:
             self.msg_logger.info('%s %s>%s: %s' % (ev.type, ev.source, ev.target, ev.arguments))
             response = None
-            if ev.type == "pubmsg":
+            if ev.type in ["pubmsg", "privnotice"]:
                 msg = ev.arguments[0]
                 if msg[0] == '!':
                     try:

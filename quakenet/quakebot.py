@@ -12,13 +12,15 @@ class QuakeNetBot():
     is_bot_module = True
     auths = {}
 
+    CALLBACKS = {}
+
     COMMANDS = {
         'auth': 'auth_handler'
         }
 
     REGEXPS = {
-        r"\(notice\) User (?P<username>[^ ]+) is not authed\." : "not_authed_handler",
-        r"\(notice\) \-Information for user (?P<username>[^ ]+) \(using aacount (?P<authname>[^ ]+)\)" : "authed_handler"
+        r"User (?P<username>[^ ]+) is not authed\." : "not_authed_handler",
+        r"\-Information for user (?P<username>[^ ]+) \(using account (?P<authname>[^ ]+)\)" : "authed_handler"
         }
 
     # override to change self.auths
@@ -50,6 +52,11 @@ class QuakeNetBot():
             del self.auth[nick]
 
 
+    def _add_callback(self, user, target, cb):
+        if not self.CALLBACKS.has_key(user):
+            self.CALLBACKS[user] = []
+        self.CALLBACKS[user].append({'fn':cb,'target':target})
+
     def authentify(self, serv):
         """
         this is highly server specific !
@@ -69,12 +76,20 @@ class QuakeNetBot():
         serv.privmsg(settings.AUTH_BOT, "WHOIS %s" % user)
 
 
-    def is_authed(self, serv, user):
-        if getattr(self.auths, user, False):
-            return self.auths[user]
-        else:
+    def is_authed(self, serv, target, user, callback=None):
+        if not self.auths.get(user, False):
+            if callback:
+                self._add_callback(user, target, callback)
             self.check_authed(serv, user)
-            return None
+        else:
+            self.tell_auth(serv, target, user)
+
+
+    def tell_auth(self, serv, target, user):
+        if self.auths.get(user, False):
+            serv.privmsg(target, 'Authed as %s' % self.auths[user])
+        else:
+            serv.privmsg(target, '%s is not authed.' % user)
 
 
     # COMMANDS HANDLERS
@@ -87,7 +102,9 @@ class QuakeNetBot():
                 user = ev.source.nick
             else:
                 user = args[0]
-            return ev.target, self.is_authed(serv, user)
+            
+            self.is_authed(serv, ev.target, user, callback=self.tell_auth)
+            return ev.target, None
         else:
             return ev.target, u'auth module desactivated !'
 
@@ -97,13 +114,24 @@ class QuakeNetBot():
         if settings.AUTH_ENABLE:
             username = match.group('username')
             self.auths[username] = None
-            #print '%s is not authed !' % username
 
+            if self.CALLBACKS.has_key(username):
+                for cb in self.CALLBACKS[username]:
+                    cb['fn'](serv, cb['target'], username)
+                del self.CALLBACKS[username]
+                
+        return ev.target, None
 
     def authed_handler(self, match, serv, ev):
+
         if settings.AUTH_ENABLE:
             username = match.group('username')
             authname = match.group('authname')
             self.auths[username] = authname
-            print '%s is authed as %s !' % (username, authname)
-        
+
+            if self.CALLBACKS.has_key(username):
+                for cb in self.CALLBACKS[username]:
+                    cb['fn'](serv, cb['target'], username)
+                del self.CALLBACKS[username]                
+
+        return ev.target, None        

@@ -19,6 +19,13 @@ class StupidIrcBot(BaseIrcBot, RandBotMixin, CleverBotMixin, QuakeNetBot):
     # poll bot
     # currency
 
+    def on_welcome(self, serv, ev):
+        super(StupidIrcBot, self).on_welcome(serv, ev)
+
+        if getattr(settings, 'AUTH_ENABLE', False):
+            self.authentify(serv)
+
+
 if __name__ == '__main__':
     bot = StupidIrcBot()
     bot.start()
