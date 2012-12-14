@@ -30,7 +30,6 @@ class BaseIrcBot(SingleServerIRCBot):
 
     def _init_modules(self):
         for b in self.__class__.__bases__:
-            print '-', self.COMMANDS
             self.COMMANDS.update(getattr(b, 'COMMANDS', {}))
             self.REGEXPS.update(getattr(b, 'REGEXPS', {}))
             if hasattr(b, '_init'): # TODO: we may want to rename it to something like _init_bot or smtg
@@ -51,7 +50,7 @@ class BaseIrcBot(SingleServerIRCBot):
 
 
     def check_admin(self, hdl, ev):
-        return (getattr(hdl, 'needs_admin', False) and self.get_username_from_source(ev.source) not in settings.ADMINS)
+        return (getattr(hdl, 'require_admin', False) and self.get_username_from_source(ev.source) not in settings.ADMINS)
 
 
     def get_username_from_source(self, source):
@@ -117,6 +116,7 @@ class BaseIrcBot(SingleServerIRCBot):
                             # there is no arguments
                             cmd = msg[1:]
                             arguments = []
+
                         hdl = getattr(self, self.COMMANDS[cmd])
                         if self.check_admin(hdl, ev):
                             target, response = ev.target, self.get_needs_to_be_admin()
@@ -145,7 +145,7 @@ class BaseIrcBot(SingleServerIRCBot):
         try:
             cmd = args[0]
         except IndexError,e:
-            msg = u"Here are the currently implemented commands : %s" % ', '.join(['!%s' %k for k in self.COMMANDS.keys() if getattr(self.COMMANDS[k], 'is_hidden', False)])
+            msg = u"Here are the currently implemented commands : %s" % ', '.join(['!%s' % k for k in self.COMMANDS.keys() if not getattr(self.COMMANDS[k], 'is_hidden', False)])
         else:
             msg = getattr(self, '%s_handler' % cmd).help
         return ev.target, msg

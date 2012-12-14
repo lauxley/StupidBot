@@ -1,10 +1,17 @@
-#! -*- coding: utf-8 -*-
 """
 rename to settings.py once you overrided all the settings
 """
-NICK = u'NotABot'
-REALNAME = u'Not a Bot'
+NICK = u'your bot name'
+REALNAME = u'the bot birth name'
 SERVER = u'euroserv.fr.quakenet.org'
-START_CHANNELS = ['#throkferoth', ]
-ADMINS = ['lox|samta', 'Traj']
+START_CHANNELS = ['#testenbois', ]
+ADMINS = ['your_nick', ] # TODO: use auth
 
+AUTH_ENABLE = False
+AUTH_BOT = "Q@CServe.quakenet.org"
+AUTH_LOGIN = "BotLogin"
+AUTH_PASSWORD = "grütpwd"
+AUTH_EMAIL = "botemail@whatever.com" # not used for now
+
+LOG_DIR = "logs"
+BACKUP_DIR = "backups"

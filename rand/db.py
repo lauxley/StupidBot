@@ -10,6 +10,9 @@ sqlite> CREATE TABLE rolls (pk INT AUTO_INCREMENT PRIMARY KEY,
 
 import sqlite3
 import datetime
+import shutil
+import os
+import settings
 
 class RandDb(object):
     db_file = "rand.db"
@@ -22,6 +25,13 @@ class RandDb(object):
 
     def close(self):
         self.conn.close()
+
+    def backup(self):
+        bck_dir = os.path.join(getattr(settings, 'BACKUP_DIR', 'backups'), 'rand')
+        if not os.path.isdir(bck_dir):
+            os.makedirs(bck_dir)
+        d = datetime.datetime.strftime(datetime.datetime.now(), '%Y%m%d_%H%M')
+        shutil.copy(self.db_file, os.path.join(bck_dir, '%s.%s' % (self.db_file, d)))
 
     def insert(self, table, values):
         # assert table exists
@@ -80,6 +90,7 @@ class RandDb(object):
         self.insert('rolls', [user, dt, roll, valid])
 
     def flush(self):
+        self.backup()
         cur = self.conn.cursor()
         # cur.execute("DELETE FROM users;")
         cur.execute("DELETE FROM rolls;")
@@ -98,7 +109,7 @@ class RandDb(object):
         else:
             return None
 
-    def get_ladder(self, min_rolls, dt):        
+    def get_ladder(self, min_rolls, dt):
         cur = self.conn.cursor()
         if not dt:
             dt = datetime.date(2000, 1, 1) # ugly
@@ -117,6 +128,7 @@ class RandDb(object):
         return [u[0] for u in cur.fetchall()]
 
     def merge(self, user1, *users):
+        self.backup()
         cur = self.conn.cursor()
         for user in users:
             cur.execute("UPDATE rolls SET user=? WHERE user=?", [user1, user])

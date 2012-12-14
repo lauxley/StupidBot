@@ -4,10 +4,11 @@ import settings
 from basebot import BaseIrcBot
 from rand.randbot import RandBotMixin
 from cleverbot.cleverircbot import CleverBotMixin
+from quakenet.quakebot import QuakeNetBot
 
-class StupidIrcBot(BaseIrcBot, RandBotMixin, CleverBotMixin):
+class StupidIrcBot(BaseIrcBot, RandBotMixin, CleverBotMixin, QuakeNetBot):
     # TODO : HgBot, GitBot
-    VERSION = '0.5'
+    VERSION = '0.6'
 
     #TBI:
     # 'search'
@@ -18,11 +19,6 @@ class StupidIrcBot(BaseIrcBot, RandBotMixin, CleverBotMixin):
     # poll bot
     # currency
 
-    def authentify(self, serv):
-        """
-        this is highly server specific !
-        """
-        serv.privmsg(settings.AUTH_BOT, "AUTH %s %s" % (settings.AUTH_LOGIN, settings.AUTH_PASSWORD))
-
-bot = StupidIrcBot()
-bot.start()
+if __name__ == '__main__':
+    bot = StupidIrcBot()
+    bot.start()
