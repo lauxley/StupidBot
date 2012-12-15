@@ -5,19 +5,15 @@ import re
 from db import RandDb
 
 class RandBotMixin():
-    """
-    ideas :
-    allstats, taking non valid rolls into accounts
-
-    """
-
     is_bot_module = True
     COMMANDS = {
         'rand': 'rand_handler',
         'stats': 'stats_handler',
+        'allstats': 'allstats_handler',
         'merge': 'merge_handler',
         'ladder': 'ladder_handler',
-        'users': 'users_handler'
+        'users': 'users_handler',
+        'backup': 'backup_handler'
         }
 
     REGEXPS = {
@@ -28,6 +24,9 @@ class RandBotMixin():
 
     def _init(self):
         self.db = RandDb()
+
+    def get_user(self, user):
+        return user
 
     def get_stats_args(self, ev, *args):
         
@@ -57,14 +56,18 @@ class RandBotMixin():
         return {'user':u, 'since':dt, 'rolls':rolls}
 
 
-    def rand_handler(self, serv, ev, *args):
+    def rand_handler(self, ev, *args):
+        def _compute_rand(user, target, roll):
+            self.db.add_entry(datetime.datetime.now(), user, roll)
+            self.send(target, '%s rolled a %s' % (user, str(roll)))
+
         roll = random.randint(1, 100)
-        self.db.add_entry(datetime.datetime.now(), self.get_username_from_source(ev.source), roll)
-        return ev.target, '%s rolled a %s' % (self.get_username_from_source(ev.source), str(roll))
+        user = self.get_user(ev.source.nick, _compute_rand, [ev.target, roll])
+        return ev.target, None 
     rand_handler.help = u"""!rand: Roll a number between 1 and 100, only one rand per day is taken into account in stats."""
 
 
-    def merge_handler(self, serv, ev, *args):
+    def merge_handler(self, ev, *args):
         try:
             cmd, user1, users = ev.arguments[0].split(" ", 2)
         except ValueError, e:
@@ -75,19 +78,25 @@ class RandBotMixin():
     merge_handler.help = u"""!merge player player1,player2,player3: Allocate the stats of playerX to 'player', only a trusted user can do this."""
     merge_handler.require_admin = True
 
-    def stats_handler(self, serv, ev, *args):
-        # TODO: add min, max, nombre de 100, de 1 ...
+    
+    def allstats_handler(self, ev, *args):
+        return self.stats_handler(ev, allrolls=True)
+    allstats_handler.help = u"""!allstats [player1] [today|week|month|year|DDMMYYYY]: display the whole rand stats of a given user including invalid rands."""
+
+    def stats_handler(self, ev, allrolls=False, *args):
+        def _tell_stats(username, target, since):
+            r = self.db.get_stats(username, since, allrolls=allrolls)
+            if r and r[0]:
+                self.send(target, u'%s rolled %s times, and got %s on average. min: %s, max: %s.' % (ar['user'], r[1], round(r[0], 3), r[2], r[3]))
+            else:
+                self.send(target, u'No stats for this user')
         ar = self.get_stats_args(ev, *args)
-        if not ar['user']:
-            ar['user'] = self.get_username_from_source(ev.source)
-        r = self.db.get_stats(ar['user'], ar['since'])
-        if r and r[0]:
-            return ev.target, u'%s rolled %s times, and got %s on average. min: %s, max: %s.' % (ar['user'], r[1], round(r[0], 3), r[2], r[3])
-        else:
-            return ev.target, u'No stats for this user'
+        self.get_user(ar['user'] or ev.source.nick, _tell_stats, [ev.target, ar['since']])
+        return ev.target, None
     stats_handler.help = u"""!stats [player1] [today|week|month|year|DDMMYYYY]: display the rand stats of a given user, or you if no username is given."""
 
-    def ladder_handler(self, serv, ev, *args):
+
+    def ladder_handler(self, ev, *args):
         """
         db.get_ladder returns :
         [('user1', '48.392'), ('user2', '47.045')]
@@ -98,7 +107,7 @@ class RandBotMixin():
         return ev.target, ' - '.join(['#%d %s %d (%sx)' % (r[0]+1, r[1][2], round(r[1][0], 3), r[1][1]) for r in enumerate(ranks)])
     ladder_handler.help = u"""!ladder [today|week|month|year|DDMMYYYY]: display the ordered list of the best randers of the given period."""
 
-    def users_handler(self, serv, ev, *args):
+    def users_handler(self, ev, *args):
         try:
             like = args[0]
         except IndexError:
@@ -111,11 +120,19 @@ class RandBotMixin():
     users_handler.help = u"""!users [filter]: display the list of the saved users, if 'filter' is set will display the list of users with 'filter' in their nick"""
     users_handler.require_admin = True
 
+    def backup_handler(self, ev, *args):
+        db.backup()
+        return ev.target, u"Done."
+    backup_handler.help = u"""!backup: does exactly what it says."""
+    backup_handler.require_admin = True
+
     # REGEXPS HANDLERS
-    def trajrand_handler(self, match, serv, ev):
+    def trajrand_handler(self, match, ev):
         user = match.group('user')
         if not user: #damn Traj, need a special rule just for him
-            user = 'Traj'
+            user = self.get_user('Traj')
         roll = match.group('roll')
         self.db.add_entry(datetime.datetime.now(), user, roll)
         return ev.target, None
+
+    

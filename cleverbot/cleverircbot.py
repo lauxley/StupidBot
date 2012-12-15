@@ -11,6 +11,6 @@ class CleverBotMixin():
         self.brain = cleverbot.Session()
 
     # REGEXPS HANDLERS
-    def highligh_handler(self, match, serv, ev):
+    def highligh_handler(self, match, ev):
         return ev.target, self.brain.Ask(match.group('msg').encode('ascii', 'replace'))
 

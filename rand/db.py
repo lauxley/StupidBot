@@ -12,6 +12,7 @@ import sqlite3
 import datetime
 import shutil
 import os
+
 import settings
 
 class RandDb(object):
@@ -97,17 +98,15 @@ class RandDb(object):
         self.conn.commit()
 
 
-    def get_stats(self, user, dt):
+    def get_stats(self, user, dt, allrolls=False):
         cur = self.conn.cursor()
         if not dt:
             dt = datetime.datetime(2000, 1, 1) # ugly
-        sql = "SELECT AVG(value) as a, COUNT(*) as c, MIN(value) as min, MAX(value) as max FROM rolls WHERE valid=1 AND roll_on >= ? GROUP BY user HAVING user = ?"
-        cur.execute(sql, [self.sql_dt(dt), user])
+        print user
+        sql = "SELECT AVG(value) as a, COUNT(*) as c, MIN(value) as min, MAX(value) as max FROM rolls WHERE valid=? AND roll_on >= ? GROUP BY user HAVING user = ?"
+        cur.execute(sql, [int(not allrolls), self.sql_dt(dt), user]) 
         r = cur.fetchone()
-        if r:
-            return r
-        else:
-            return None
+        return r
 
     def get_ladder(self, min_rolls, dt):
         cur = self.conn.cursor()

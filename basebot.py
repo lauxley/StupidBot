@@ -28,6 +28,7 @@ class BaseIrcBot(SingleServerIRCBot):
         self._init_modules()
         self.ircobj.add_global_handler("all_events", self.global_handler)
 
+
     def _init_modules(self):
         for b in self.__class__.__bases__:
             self.COMMANDS.update(getattr(b, 'COMMANDS', {}))
@@ -35,14 +36,15 @@ class BaseIrcBot(SingleServerIRCBot):
             if hasattr(b, '_init'): # TODO: we may want to rename it to something like _init_bot or smtg
                 b._init(self)
 
-    def send(self, serv, target, msg):
+
+    def send(self, target, msg):
         while len(msg) > self.MAX_MSG_LEN:
             time.sleep(1) # so we don't get disco for excess flood
             ind = msg.rfind(" ", 0, self.MAX_MSG_LEN)
             buff = msg[ind:]
-            serv.privmsg(target, msg[:ind])
+            self.server.privmsg(target, msg[:ind])
             msg = buff
-        serv.privmsg(target, msg)   
+        self.server.privmsg(target, msg)   
 
 
     def get_needs_to_be_admin(self):
@@ -50,15 +52,7 @@ class BaseIrcBot(SingleServerIRCBot):
 
 
     def check_admin(self, hdl, ev):
-        return (getattr(hdl, 'require_admin', False) and self.get_username_from_source(ev.source) not in settings.ADMINS)
-
-
-    def get_username_from_source(self, source):
-        # change this using the real auth
-        try:
-            return source.split("!")[0]
-        except IndexError:
-            return source
+        return (getattr(hdl, 'require_admin', False) and self.get_user(ev.source.nick) not in settings.ADMINS)
 
 
     def _init_loggers(self):
@@ -83,6 +77,7 @@ class BaseIrcBot(SingleServerIRCBot):
 
 
     def on_welcome(self, serv, ev):
+        self.server = serv
         # changing the default Buffer to ensure no encoding error
         self.connection.buffer = CompliantDecodingLineBuffer()
 
@@ -109,7 +104,7 @@ class BaseIrcBot(SingleServerIRCBot):
                         if self.check_admin(hdl, ev):
                             target, response = ev.target, self.get_needs_to_be_admin()
                         else:
-                            target, response = hdl(serv, ev, *arguments)
+                            target, response = hdl(ev, *arguments)
 
                     except KeyError, e:
                         self.error_logger.warning('Invalid command : %s' % e)
@@ -117,10 +112,10 @@ class BaseIrcBot(SingleServerIRCBot):
                     for regexp in self.REGEXPS.keys():
                         m = re.match(regexp, msg)
                         if m:
-                            target, response = getattr(self, self.REGEXPS[regexp])(m, serv, ev)
+                            target, response = getattr(self, self.REGEXPS[regexp])(m, ev)
                             # break # should we ?
                 if response:
-                    self.send(serv, target, response)
+                    self.send(target, response)
             else:
                 # TODO: handle privmsgs
                 pass
@@ -129,7 +124,7 @@ class BaseIrcBot(SingleServerIRCBot):
 
 
     # CMD HANDLERS
-    def help_handler(self, serv, ev, *args):
+    def help_handler(self, ev, *args):
         try:
             cmd = args[0]
         except IndexError,e:
@@ -139,11 +134,13 @@ class BaseIrcBot(SingleServerIRCBot):
         return ev.target, msg
     help_handler.help = u"""Display this help."""
 
-    def version_handler(self, serv, ev, *args):
+
+    def version_handler(self, ev, *args):
         return ev.target, u"version: %s" % self.VERSION
     version_handler.help = u"""Display the bot version."""
 
-    def ping_handler(self, serv, ev, *args):
+
+    def ping_handler(self, ev, *args):
         return ev.target, u'pong'
     ping_handler.help = u"""!ping: pong?"""
     ping_handler.is_hidden = False # only an example

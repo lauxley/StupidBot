@@ -23,8 +23,11 @@ class StupidIrcBot(BaseIrcBot, RandBotMixin, CleverBotMixin, QuakeNetBot):
         super(StupidIrcBot, self).on_welcome(serv, ev)
 
         if getattr(settings, 'AUTH_ENABLE', False):
-            self.authentify(serv)
+            self.authentify()
 
+    def get_user(self, user, cb=None, args=[]):
+        if user:
+            return (getattr(settings, 'AUTH_ENABLE', False) and self.get_auth(user).get_auth(cb, args)) or user
 
 if __name__ == '__main__':
     bot = StupidIrcBot()
