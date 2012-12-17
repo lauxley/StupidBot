@@ -11,9 +11,10 @@ class Auth():
         self.check_authed()
 
 
-    def get_auth(self, cb, args):
+    def get_auth(self, cb=None, args=None):
         if self.auth:
-            cb(self.auth, *args)
+            if cb:
+                cb(self, *args)
             return self.auth
         elif not self._checked:
             self._add_callback(cb, args)
@@ -103,9 +104,15 @@ class QuakeNetBot():
         return self.get_auth(user).auth
 
 
-    def get_auth(self, user):
+    def get_auth(self, user, recheck=False):
+        """
+        recheck force the check of the auth
+        """
         if not self.auths.has_key(user):
             self.auths[user] = Auth(self.server, user)
+        else:
+            if recheck:
+                self.auths[user]._checked = False
         return self.auths[user]
 
 
@@ -116,13 +123,14 @@ class QuakeNetBot():
                 self.server.privmsg(target, '%s is authed as %s' % (user, self.auths[user].auth))
             else:
                 self.server.privmsg(target, '%s is not authed.' % user)
+
         if settings.AUTH_ENABLE:
             if not len(args):
                 user = ev.source.nick
             else:
                 user = args[0]
-            
-            self.get_auth(user).get_auth(_tell_auth, [user, ev.target])
+
+            self.get_auth(user, recheck=True).get_auth(_tell_auth, [user, ev.target])
             return ev.target, None
         else:
             return ev.target, u'auth module desactivated !'
@@ -133,14 +141,13 @@ class QuakeNetBot():
         self._checked = True
         if settings.AUTH_ENABLE:
             username = match.group('username')
-            a = self.auths[username]
+            a = self.get_auth(username)
             a.set_auth(None)
             
             for cb in a.callbacks:
                 if not cb.get('_lock', False):
                     cb['_lock'] = True
-                    print u'calling %s with %s, %s' % (cb['fn'], username, cb['args'])
-                    cb['fn'](username, *cb['args'])
+                    cb['fn'](a, *cb['args'])
                     del cb
                 
         return ev.target, None
@@ -156,7 +163,7 @@ class QuakeNetBot():
             for cb in a.callbacks:
                 if not cb.get('_lock', False):
                     cb['_lock'] = True
-                    cb['fn'](username, *cb['args'])
+                    cb['fn'](a, *cb['args'])
                     del cb
 
         return ev.target, None

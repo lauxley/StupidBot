@@ -57,9 +57,10 @@ class RandBotMixin():
 
 
     def rand_handler(self, ev, *args):
-        def _compute_rand(user, target, roll):
-            self.db.add_entry(datetime.datetime.now(), user, roll)
-            self.send(target, '%s rolled a %s' % (user, str(roll)))
+        def _compute_rand(auth, target, roll):
+            valid = self.db.add_entry(datetime.datetime.now(), auth.auth or auth.nick, roll)
+            msg = '%s rolled a %s.' % (auth.nick, str(roll))
+            self.send(target, msg)
 
         roll = random.randint(1, 100)
         user = self.get_user(ev.source.nick, _compute_rand, [ev.target, roll])
@@ -83,11 +84,11 @@ class RandBotMixin():
         return self.stats_handler(ev, allrolls=True)
     allstats_handler.help = u"""!allstats [player1] [today|week|month|year|DDMMYYYY]: display the whole rand stats of a given user including invalid rands."""
 
-    def stats_handler(self, ev, allrolls=False, *args):
-        def _tell_stats(username, target, since):
-            r = self.db.get_stats(username, since, allrolls=allrolls)
-            if r and r[0]:
-                self.send(target, u'%s rolled %s times, and got %s on average. min: %s, max: %s.' % (ar['user'], r[1], round(r[0], 3), r[2], r[3]))
+    def stats_handler(self, ev, *args, **kwargs):
+        def _tell_stats(auth, target, since):
+            r = self.db.get_stats(auth.auth or auth.nick, since, allrolls=kwargs.get('allrolls', False))
+            if r and r['count']:
+                self.send(target, u'%s rolled %s times, and got %s on average. min: %s, max: %s. pos: %s' % (auth.nick, r['count'], round(r['avg'], 3), r['min'], r['max'], r['pos']))
             else:
                 self.send(target, u'No stats for this user')
         ar = self.get_stats_args(ev, *args)

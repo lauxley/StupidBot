@@ -89,6 +89,7 @@ class RandDb(object):
             valid = not self.already_rolled(dt, user)
         # userpk = self.get_or_create_user(user)
         self.insert('rolls', [user, dt, roll, valid])
+        return valid
 
     def flush(self):
         self.backup()
@@ -102,11 +103,17 @@ class RandDb(object):
         cur = self.conn.cursor()
         if not dt:
             dt = datetime.datetime(2000, 1, 1) # ugly
-        print user
         sql = "SELECT AVG(value) as a, COUNT(*) as c, MIN(value) as min, MAX(value) as max FROM rolls WHERE valid=? AND roll_on >= ? GROUP BY user HAVING user = ?"
-        cur.execute(sql, [int(not allrolls), self.sql_dt(dt), user]) 
+        cur.execute(sql, [int(not allrolls), self.sql_dt(dt), user])
         r = cur.fetchone()
-        return r
+        
+        # we need another query because sqlite sux
+        if r:
+            sql = "SELECT COUNT(*), AVG(value) as a FROM rolls WHERE valid=? AND roll_on>=? GROUP BY user HAVING a <= ?"
+            cur.execute(sql, [int(not allrolls), self.sql_dt(dt), r[0]])
+            p = cur.fetchone()
+            
+            return {'avg':r[0], 'count':r[1], 'min':r[2], 'max':r[3], 'pos':p[0]}
 
     def get_ladder(self, min_rolls, dt):
         cur = self.conn.cursor()
