@@ -72,15 +72,7 @@ class QuakeNetBot():
 
     #def _on_part(self, c, e):
     #def _on_kick(self, c, e):
-    
-    def _on_namreply(self, c, e):
-        # e.arguments[0] == "@" for secret channels,
-        #                     "*" for private channels,
-        #                     "=" for others (public channels)
-        # e.arguments[1] == channel
-        # e.arguments[2] == nick list
-        super(QuakeNetBot, self)._on_namereply(c, e)
-        
+
     def _on_nick(self, c, e):
         super(QuakeNetBot, self)._on_nick(c, e)
         if settings.AUTH_ENABLE:
