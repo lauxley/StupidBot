@@ -13,8 +13,6 @@ class Auth():
 
     def get_auth(self, cb=None, args=None):
         if self.auth:
-            if cb:
-                cb(self, *args)
             return self.auth
         elif not self._checked:
             self._add_callback(cb, args)
@@ -72,9 +70,16 @@ class QuakeNetBot():
             self.auths[nick] = Auth(serv, nick)
             self.auths[nick].check_authed()
 
-    # def _on_part(self, c, e):
-        
+    #def _on_part(self, c, e):
     #def _on_kick(self, c, e):
+    
+    def _on_namreply(self, c, e):
+        # e.arguments[0] == "@" for secret channels,
+        #                     "*" for private channels,
+        #                     "=" for others (public channels)
+        # e.arguments[1] == channel
+        # e.arguments[2] == nick list
+        super(QuakeNetBot, self)._on_namereply(c, e)
         
     def _on_nick(self, c, e):
         super(QuakeNetBot, self)._on_nick(c, e)
@@ -147,7 +152,7 @@ class QuakeNetBot():
             for cb in a.callbacks:
                 if not cb.get('_lock', False):
                     cb['_lock'] = True
-                    cb['fn'](a, *cb['args'])
+                    cb['fn'](a.nick, *cb['args'])
                     del cb
                 
         return ev.target, None
@@ -163,7 +168,7 @@ class QuakeNetBot():
             for cb in a.callbacks:
                 if not cb.get('_lock', False):
                     cb['_lock'] = True
-                    cb['fn'](a, *cb['args'])
+                    cb['fn'](a.auth, *cb['args'])
                     del cb
 
         return ev.target, None

@@ -27,7 +27,20 @@ class StupidIrcBot(BaseIrcBot, RandBotMixin, CleverBotMixin, QuakeNetBot):
 
     def get_user(self, user, cb=None, args=[]):
         if user:
-            return (getattr(settings, 'AUTH_ENABLE', False) and self.get_auth(user).get_auth(cb, args)) or user
+            if getattr(settings, 'AUTH_ENABLE', False):
+                auth = self.get_auth(user).get_auth(cb, args)
+                if auth:
+                    if cb:
+                        cb(auth, *args)
+                    return auth
+                else:
+                    # waiting for the response
+                    return None
+            else:
+                if cb:
+                    cb(user, *args)
+                return user
+        
 
 if __name__ == '__main__':
     bot = StupidIrcBot()

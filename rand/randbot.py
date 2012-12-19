@@ -57,14 +57,14 @@ class RandBotMixin():
 
 
     def rand_handler(self, ev, *args):
-        def _compute_rand(auth, target, roll):
-            valid = self.db.add_entry(datetime.datetime.now(), auth.auth or auth.nick, roll)
-            msg = '%s rolled a %s.' % (auth.nick, str(roll))
+        def _compute_rand(auth, nick, target, roll):
+            valid = self.db.add_entry(datetime.datetime.now(), auth, roll)
+            msg = '%s rolled a %s.' % (nick, str(roll))
             self.send(target, msg)
 
         roll = random.randint(1, 100)
-        user = self.get_user(ev.source.nick, _compute_rand, [ev.target, roll])
-        return ev.target, None 
+        self.get_user(ev.source.nick, _compute_rand, [ev.source.nick, ev.target, roll])
+        return ev.target, None
     rand_handler.help = u"""!rand: Roll a number between 1 and 100, only one rand per day is taken into account in stats."""
 
 
@@ -85,14 +85,15 @@ class RandBotMixin():
     allstats_handler.help = u"""!allstats [player1] [today|week|month|year|DDMMYYYY]: display the whole rand stats of a given user including invalid rands."""
 
     def stats_handler(self, ev, *args, **kwargs):
-        def _tell_stats(auth, target, since):
-            r = self.db.get_stats(auth.auth or auth.nick, since, allrolls=kwargs.get('allrolls', False))
+        def _tell_stats(auth, nick, target, since):
+            r = self.db.get_stats(auth, since, allrolls=kwargs.get('allrolls', False))
             if r and r['count']:
-                self.send(target, u'%s rolled %s times, and got %s on average. min: %s, max: %s. pos: %s' % (auth.nick, r['count'], round(r['avg'], 3), r['min'], r['max'], r['pos']))
+                self.send(target, u'%s rolled %s times, and got %s on average. min: %s, max: %s. pos: %s' % (nick, r['count'], round(r['avg'], 3), r['min'], r['max'], r['pos']))
             else:
                 self.send(target, u'No stats for this user')
         ar = self.get_stats_args(ev, *args)
-        self.get_user(ar['user'] or ev.source.nick, _tell_stats, [ev.target, ar['since']])
+        user = ar['user'] or ev.source.nick
+        self.get_user(user, _tell_stats, [user, ev.target, ar['since']])
         return ev.target, None
     stats_handler.help = u"""!stats [player1] [today|week|month|year|DDMMYYYY]: display the rand stats of a given user, or you if no username is given."""
 
@@ -132,6 +133,8 @@ class RandBotMixin():
         user = match.group('user')
         if not user: #damn Traj, need a special rule just for him
             user = self.get_user('Traj')
+        else:
+            user = self.get_user(user)
         roll = match.group('roll')
         self.db.add_entry(datetime.datetime.now(), user, roll)
         return ev.target, None
