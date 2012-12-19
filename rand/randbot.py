@@ -130,13 +130,17 @@ class RandBotMixin():
 
     # REGEXPS HANDLERS
     def trajrand_handler(self, match, ev):
+        def _add_rand(auth, nick, target, roll):
+            valid = self.db.add_entry(datetime.datetime.now(), auth, roll)
+            #msg = '%s rolled a %s.' % (nick, str(roll))
+            #self.send(target, msg)
+
         user = match.group('user')
-        if not user: #damn Traj, need a special rule just for him
-            user = self.get_user('Traj')
-        else:
-            user = self.get_user(user)
         roll = match.group('roll')
-        self.db.add_entry(datetime.datetime.now(), user, roll)
+        if not user: #damn Traj, need a special rule just for him
+            user = 'Traj'
+
+        user = self.get_user(user, _add_rand, [ev.source.nick, ev.target, roll])
         return ev.target, None
 
     

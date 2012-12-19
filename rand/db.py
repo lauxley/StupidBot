@@ -110,7 +110,7 @@ class RandDb(object):
         # we need another query to get the pos because sqlite sux
         if r:
             sql = "SELECT COUNT(*) FROM (SELECT AVG(value) as a FROM rolls WHERE valid=? AND roll_on>=? GROUP BY user HAVING a <= ?)"
-            cur.execute(sql, [int(not allrolls), self.sql_dt(dt), r[0]])
+            cur.execute(sql, [int(not allrolls), self.sql_dt(dt), int(r[0])])
             p = cur.fetchone()
             
             return {'avg':r[0], 'count':r[1], 'min':r[2], 'max':r[3], 'pos':p[0]}
