@@ -5,10 +5,11 @@ from basebot import BaseIrcBot
 from rand.randbot import RandBotMixin
 from cleverbot.cleverircbot import CleverBotMixin
 from quakenet.quakebot import QuakeNetBot
+from calc.calcbot import CalcBot
 
-class StupidIrcBot(BaseIrcBot, RandBotMixin, CleverBotMixin, QuakeNetBot):
+class StupidIrcBot(BaseIrcBot, RandBotMixin, CleverBotMixin, QuakeNetBot, CalcBot):
     # TODO : HgBot, GitBot
-    VERSION = '0.6'
+    VERSION = '0.7'
 
     #TBI:
     # 'search'

@@ -59,7 +59,8 @@ class QuakeNetBot():
 
     REGEXPS = {
         r"User (?P<username>[^ ]+) is not authed\." : "not_authed_handler",
-        r"\-Information for user (?P<username>[^ ]+) \(using account (?P<authname>[^ ]+)\)" : "authed_handler"
+        r"\-Information for user (?P<username>[^ ]+) \(using account (?P<authname>[^ ]+)\)" : "authed_handler",
+        r"Can\'t find user (?P<username>[^ ]+).": "user_unknown_handler"
         }
 
     # override to change self.auths
@@ -135,10 +136,10 @@ class QuakeNetBot():
 
     # REGEXPS HANDLERS
     def not_authed_handler(self, match, ev):
-        self._checked = True
         if settings.AUTH_ENABLE:
             username = match.group('username')
             a = self.get_auth(username)
+            a._checked = True
             a.set_auth(None)
             
             for cb in a.callbacks:
@@ -150,11 +151,11 @@ class QuakeNetBot():
         return ev.target, None
 
     def authed_handler(self, match, ev):
-        self._checked = True
         if settings.AUTH_ENABLE:
             username = match.group('username')
             authname = match.group('authname')
             a = self.auths[username]
+            a._checked = True
             a.set_auth(authname)
 
             for cb in a.callbacks:
@@ -164,3 +165,8 @@ class QuakeNetBot():
                     del cb
 
         return ev.target, None
+
+    def user_unknown_handler(self, match, ev):
+        if settings.AUTH_ENABLE:
+            del self.auths[username]
+        return ev.target, u"No user with this name."

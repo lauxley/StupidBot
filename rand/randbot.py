@@ -7,6 +7,7 @@ from db import RandDb
 class RandBotMixin():
     is_bot_module = True
     COMMANDS = {
+        'r': 'rand_handler',
         'rand': 'rand_handler',
         'stats': 'stats_handler',
         'allstats': 'allstats_handler',
