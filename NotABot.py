@@ -7,7 +7,7 @@ from cleverbot.cleverircbot import CleverBotMixin
 from quakenet.quakebot import QuakeNetBot
 from calc.calcbot import CalcBot
 
-class StupidIrcBot(BaseIrcBot, RandBotMixin, CleverBotMixin, QuakeNetBot, CalcBot):
+class StupidIrcBot(BaseIrcBot, RandBotMixin, CleverBotMixin, QuakeNetBot): #CalcBot (desactivated, so many potential problems)
     # TODO : HgBot, GitBot
     VERSION = '0.7'
 
