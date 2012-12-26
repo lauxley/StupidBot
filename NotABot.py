@@ -5,9 +5,10 @@ from basebot import BaseIrcBot
 from rand.randbot import RandBotMixin
 from cleverbot.cleverircbot import CleverBotMixin
 from quakenet.quakebot import QuakeNetBot
-from calc.calcbot import CalcBot
+#from calc.calcbot import CalcBot
+from currency.currencybot import CurrencyBot
 
-class StupidIrcBot(BaseIrcBot, RandBotMixin, CleverBotMixin, QuakeNetBot): #CalcBot (desactivated, so many potential problems)
+class StupidIrcBot(BaseIrcBot, RandBotMixin, CleverBotMixin, QuakeNetBot, CurrencyBot): #CalcBot (desactivated, so many potential problems)
     # TODO : HgBot, GitBot
     VERSION = '0.7'
 

@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+import time
 from logging import handlers
 
 from irc.client import DecodingLineBuffer
@@ -39,11 +40,11 @@ class BaseIrcBot(SingleServerIRCBot):
 
     def send(self, target, msg):
         while len(msg) > self.MAX_MSG_LEN:
-            time.sleep(1) # so we don't get disco for excess flood
             ind = msg.rfind(" ", 0, self.MAX_MSG_LEN)
             buff = msg[ind:]
             self.server.privmsg(target, msg[:ind])
             msg = buff
+            time.sleep(1) # so we don't get disco for excess flood
         self.server.privmsg(target, msg)   
 
 
@@ -130,7 +131,10 @@ class BaseIrcBot(SingleServerIRCBot):
         except IndexError,e:
             msg = u"Here are the currently implemented commands : %s" % ', '.join(['!%s' % k for k in self.COMMANDS.keys() if not getattr(self.COMMANDS[k], 'is_hidden', False)])
         else:
-            msg = getattr(self, '%s_handler' % cmd).help
+            try:
+                msg = getattr(self, self.COMMANDS[cmd]).help
+            except KeyError,e:
+                msg = u"No such command."
         return ev.target, msg
     help_handler.help = u"""Display this help."""
 
