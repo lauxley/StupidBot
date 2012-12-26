@@ -1,10 +1,10 @@
 import json
-import urllib2
+import urllib, urllib2
 from datetime import date, timedelta
 
 import settings
 
-METEO_URL = 'http://free.worldweatheronline.com/feed/weather.ashx?q={q}&format=json&num_of_days=2&key={api_key}'
+METEO_URL = u'http://free.worldweatheronline.com/feed/weather.ashx?q={q}&format=json&num_of_days=2&key={api_key}'
 API_KEY = settings.WORLDWEATHERONLINE_API_KEY
 
 def _get_data(url):
@@ -12,6 +12,7 @@ def _get_data(url):
     try:
         response = urllib2.urlopen(request)
     except urllib2.URLError:
+        print 'wzzzz'
         return None
     result = response.read()
     return result
@@ -46,7 +47,8 @@ def get_weather(location, qdate='tomorow'):
     }
     }
     """
-    data = _get_data(METEO_URL.format(q=location, api_key=API_KEY))
+    data = _get_data(METEO_URL.format(q=urllib.quote_plus(location), api_key=API_KEY))
+    print '---', data
     if data:
         try:
             jd = json.loads(data)['data']
