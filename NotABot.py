@@ -7,10 +7,11 @@ from cleverbot.cleverircbot import CleverBotMixin
 from quakenet.quakebot import QuakeNetBot
 #from calc.calcbot import CalcBot
 from currency.currencybot import CurrencyBot
+from meteo.meteobot import MeteoBot
 
-class StupidIrcBot(BaseIrcBot, RandBotMixin, CleverBotMixin, QuakeNetBot, CurrencyBot): #CalcBot (desactivated, so many potential problems)
+class StupidIrcBot(BaseIrcBot, RandBotMixin, CleverBotMixin, QuakeNetBot, CurrencyBot, MeteoBot): #CalcBot (desactivated, so many potential problems)
     # TODO : HgBot, GitBot
-    VERSION = '0.7'
+    VERSION = '0.8'
 
     #TBI:
     # 'search'
