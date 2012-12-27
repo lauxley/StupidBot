@@ -8,8 +8,9 @@ from quakenet.quakebot import QuakeNetBot
 #from calc.calcbot import CalcBot
 from currency.currencybot import CurrencyBot
 from meteo.meteobot import MeteoBot
+from feed.rssbot import RssBot
 
-class StupidIrcBot(BaseIrcBot, RandBotMixin, CleverBotMixin, QuakeNetBot, CurrencyBot, MeteoBot): #CalcBot (desactivated, so many potential problems)
+class StupidIrcBot(BaseIrcBot, RandBotMixin, CleverBotMixin, QuakeNetBot, CurrencyBot, MeteoBot, RssBot): #CalcBot (desactivated, so many potential problems)
     # TODO : HgBot, GitBot
     VERSION = '0.8'
 
@@ -27,6 +28,9 @@ class StupidIrcBot(BaseIrcBot, RandBotMixin, CleverBotMixin, QuakeNetBot, Curren
 
         if getattr(settings, 'AUTH_ENABLE', False):
             self.authentify()
+
+        self._fetch_feeds()
+
 
     def get_user(self, user, cb=None, args=[]):
         if user:

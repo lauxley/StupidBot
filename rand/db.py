@@ -22,6 +22,8 @@ class RandDb(object):
         self.conn = sqlite3.connect(self.db_file)
 
     def __init__(self):
+        if not os.path.isfile(self.db_file):
+            self._make_db()
         self._connect()
 
     def close(self):

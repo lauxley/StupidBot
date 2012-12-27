@@ -12,7 +12,6 @@ def _get_data(url):
     try:
         response = urllib2.urlopen(request)
     except urllib2.URLError:
-        print 'wzzzz'
         return None
     result = response.read()
     return result
@@ -48,7 +47,6 @@ def get_weather(location, qdate='tomorow'):
     }
     """
     data = _get_data(METEO_URL.format(q=urllib.quote_plus(location), api_key=API_KEY))
-    print '---', data
     if data:
         try:
             jd = json.loads(data)['data']

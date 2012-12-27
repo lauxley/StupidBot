@@ -105,7 +105,10 @@ class BaseIrcBot(SingleServerIRCBot):
                         if self.check_admin(hdl, ev):
                             target, response = ev.target, self.get_needs_to_be_admin()
                         else:
-                            target, response = hdl(ev, *arguments)
+                            try:
+                                target, response = hdl(ev, *arguments)
+                            except NotImplementedError, e:
+                                target, response = ev.target, u"Not Implemented yet."
 
                     except KeyError, e:
                         self.error_logger.warning('Invalid command : %s' % e)
