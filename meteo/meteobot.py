@@ -1,6 +1,9 @@
 #! -*- coding: utf-8 -*-
-import settings
 from datetime import datetime
+from unidecode import unidecode
+
+import settings
+
 from worldweatheronline import get_weather
 
 class MeteoBot():
@@ -10,6 +13,7 @@ class MeteoBot():
     DATE_REQUEST_CHOICES = ['current', 'today', 'tomorrow']
     COMMANDS = {
         'meteo':'meteo_handler',
+        'weather':'meteo_handler',
         }
 
 
@@ -27,7 +31,7 @@ class MeteoBot():
             elif arg == 'tomorrow':
                 day = 'tomorrow'
             else:
-                location = arg
+                location = unidecode(arg)
 
         weather = get_weather(location, day)
         if not weather:
