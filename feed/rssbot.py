@@ -185,7 +185,7 @@ class RssBot():
                 return ev.target, u"Already added in this channel."
             else:
                 # add it
-                feed.channels.append(chan)
+                feed.channels.append(ev.target)
                 sql = "UPDATE feeds SET channels=? WHERE ROWID=?;"
                 cur = self.feed_conn.cursor()
                 cur.execute(sql, [','.join(self.channels), feed[0]])
