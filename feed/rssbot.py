@@ -122,7 +122,7 @@ class RssBot():
             data = feedparser.parse(feed_url)
 
             last_entry = data['entries'][0]['id']
-            last_updated = data['updated']
+            last_updated = datetime.datetime.strptime(data['updated'], '%a, %d %b %Y %H:%M:%S %Z')
 
             feed = RssFeed(self._create_feed(feed_url, feed_title, last_entry, dt_to_sql(last_updated), chan))
             feed.entries = data['entries']
