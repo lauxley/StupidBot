@@ -39,6 +39,7 @@ class RssFeed():
 
 
     def fetch(self, conn):
+        # TODO : catch if feed changed and became invalid all of a sudden
         data = feedparser.parse(self.url)
 
         del self.entries
@@ -79,7 +80,7 @@ class RssBot():
     def _init(self):
         # initialize the loop to fetch the feeds
         if not os.path.isfile(self.db_file):
-            self.conn = sqlite3.connect(self.db_file)
+            self.conn = sqlite3.connect(self.db_file, check_same_thread = False)
             self._make_db()
             return
         self.conn = sqlite3.connect(self.db_file)
@@ -111,15 +112,19 @@ class RssBot():
         self.conn.commit()
         cur.close()
 
-    def _get_feed(self, feed_url, feed_title, chan, data):
+    def _get_feed(self, feed_url, feed_title, chan):
         created = False
         for feed in self.feeds:
             if feed.url == feed_url:
                 return feed, created
         try:
+            # check that it is a valid feed
+            data = feedparser.parse(feed_url)
+
             last_entry = data['entries'][0]['id']
             last_updated = data['updated']
             feed = RssFeed(self._create_feed(feed_url, feed_title, last_entry, dt_to_sql(last_updated), chan))
+            feed.entries = data['entries']
             created = True
         except (IndexError, KeyError), e:
             self.error_logger.warning('Invalid feed : %s' % e)
@@ -168,13 +173,9 @@ class RssBot():
             return ev.target, u"Please give me one title and a valid url."
         feed_title = args[0]
         feed_url = args[1]
-        # check that it is a valid feed
-        data = feedparser.parse(feed_url)
-        if data['bozo'] == '1':
-            return ev.target, u"This does not appear to be a RSS Feed."
         
         # check if the feed already exists, create it if not
-        feed, created = self._get_feed(feed_url, feed_title, ev.target, data)
+        feed, created = self._get_feed(feed_url, feed_title, ev.target)
         # check the channel is not already in the list
         if feed:
             if created:
