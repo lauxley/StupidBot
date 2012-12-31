@@ -17,6 +17,9 @@ class Auth():
         elif not self._checked:
             self._add_callback(cb, args)
             self.check_authed()
+            # waiting for response
+        else:
+            return self.nick
         return None
 
             
