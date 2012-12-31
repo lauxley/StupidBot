@@ -46,7 +46,7 @@ class RssFeed():
         self.entries = data['entries']
 
         new_data = []
-        updated = datetime.datetime.fromtimestamp(time.mktime(data['updated'])) #, '%a, %d %b %Y %H:%M:%S %Z'
+        updated = datetime.datetime.strptime(data['updated'], '%a, %d %b %Y %H:%M:%S %Z')
 
         if updated != self.updated:
             for entry in data['entries']:
@@ -80,13 +80,13 @@ class RssBot():
     def _init(self):
         # initialize the loop to fetch the feeds
         if not os.path.isfile(self.db_file):
-            self.conn = sqlite3.connect(self.db_file, check_same_thread = False)
+            self.feed_conn = sqlite3.connect(self.db_file, check_same_thread = False)
             self._make_db()
             return
-        self.conn = sqlite3.connect(self.db_file)
+        self.feed_conn = sqlite3.connect(self.db_file, check_same_thread = False)
 
         sql = "SELECT ROWID, url, last_updated, last_entry, channels, title FROM feeds"
-        cur = self.conn.cursor()
+        cur = self.feed_conn.cursor()
         cur.execute(sql)
         row = cur.fetchone()
         while row:
@@ -95,7 +95,7 @@ class RssBot():
         cur.close()
                 
     def close(self):
-        self.conn.close()
+        self.feed_conn.close()
 
     
     def _make_db(self):
@@ -107,9 +107,9 @@ class RssBot():
                             title VARCHAR(64)
                 );"""
 
-        cur = self.conn.cursor()
+        cur = self.feed_conn.cursor()
         cur.execute(sql)
-        self.conn.commit()
+        self.feed_conn.commit()
         cur.close()
 
     def _get_feed(self, feed_url, feed_title, chan):
@@ -123,6 +123,7 @@ class RssBot():
 
             last_entry = data['entries'][0]['id']
             last_updated = data['updated']
+
             feed = RssFeed(self._create_feed(feed_url, feed_title, last_entry, dt_to_sql(last_updated), chan))
             feed.entries = data['entries']
             created = True
@@ -136,9 +137,9 @@ class RssBot():
 
     def _create_feed(self, feed_url, feed_title, last_entry, last_updated, chan):
         sql = "INSERT INTO feeds (url, last_entry, last_updated, channels, title) VALUES (?,?,?,?,?)"
-        cur = self.conn.cursor()
+        cur = self.feed_conn.cursor()
         cur.execute(sql, [feed_url, last_entry, last_updated, chan, feed_title])
-        self.conn.commit()
+        self.feed_conn.commit()
 
         sql = "SELECT ROWID, url, last_updated, last_entry, channels, title FROM feeds WHERE url=?"
         cur.execute(sql, [feed_url,])
@@ -147,11 +148,11 @@ class RssBot():
     def _fetch(self):
         while(True):
             for feed in self.feeds:
-                new_data = feed.fetch(self.conn)
+                new_data = feed.fetch(self.feed_conn)
                 for entry in new_data[:self.MAX_ENTRIES]:
                     for chan in feed.channels:
-                        self.send(chan, self._tell(entry))
-                        time.sleep(1) # avoid to get kicked, TODO: should be managed in self.send
+                        self.send(chan, self._tell(feed, entry))
+                        time.sleep(self.TIME_BETWEEN_MSGS) # avoid to get kicked, TODO: should be managed in self.send
 
             time.sleep(self.FETCH_TIME*60)
 
@@ -160,11 +161,11 @@ class RssBot():
         thr.daemon = True
         thr.start()
 
-    def _tell(self, entry):
-        return '%s - %s' % (entry['title'], entry['link'])
+    def _tell(self, feed, entry):
+        return '%s : %s - %s' % (feed.title, entry['title'], entry['link'])
 
-    def _tell_more(self, entry):
-        return '%s - %s' % (entry['title'], entry['link'])
+    def _tell_more(self, feed, entry):
+        return '%s : %s - %s' % (feed.title, entry['title'], entry['link'])
 
     # HANDLERS
     def addfeed_handler(self, ev, *args):
@@ -186,9 +187,9 @@ class RssBot():
                 # add it
                 feed.channels.append(chan)
                 sql = "UPDATE feeds SET channels=? WHERE ROWID=?;"
-                cur = self.conn.cursor()
+                cur = self.feed_conn.cursor()
                 cur.execute(sql, [','.join(self.channels), feed[0]])
-                self.conn.commit()
+                self.feed_conn.commit()
                 return ev.target, u'Feed added to this channel.'
         else:
             return ev.target, u"Invalid RSS feed."
@@ -216,15 +217,15 @@ class RssBot():
         for feed in self.feeds:
             if feed.updated > most_recent.updated:
                 most_recent = feed
-        return most_recent.entries[0]
+        return most_recent, most_recent.entries[0]
 
     def feed_handler(self, ev, *args):
         if not self.feeds:
             return ev.target, u'No rss feed added yet.'
 
         if len(args) == 0:
-            last_entry = self.get_last_entry()
-            return ev.source.nick, self._tell_more(last_entry)
+            feed, last_entry = self.get_last_entry()
+            return ev.source.nick, self._tell_more(feed, last_entry)
         else:
             feedn = None
             entryn = None
@@ -238,9 +239,9 @@ class RssBot():
                         entryn = int(arg[1:])
 
                 if feedn is not None and entryn is not None:
-                    return ev.source.nick, self._tell_more(self.feeds[feedn].entries[entryn])
+                    return ev.source.nick, self._tell_more(self.feeds[feedn], self.feeds[feedn].entries[entryn])
                 elif feedn is not None:
-                    return ev.source.nick, self._tell_more(self.feeds[feedn].entries[0])
+                    return ev.source.nick, self._tell_more(self.feeds[feedn], self.feeds[feedn].entries[0])
                 else:
                     raise IndexError # kinda ugly :p
 

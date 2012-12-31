@@ -1,7 +1,7 @@
 import logging
 import os
 import re
-import time
+import datetime, time
 from logging import handlers
 
 from irc.client import DecodingLineBuffer
@@ -15,7 +15,8 @@ class CompliantDecodingLineBuffer(DecodingLineBuffer):
 class BaseIrcBot(SingleServerIRCBot):
     # commands modes : ANY | PUBLIC | PRIVATE : tells if the bot will respond to commands on a private msg or a public channel
     
-    MAX_MSG_LEN = 450 #its 512 but we need some space for the command arguments
+    MAX_MSG_LEN = getattr(settings, 'MAX_MSG_LEN', 450) #its 512 but we need some space for the command arguments, might depend on irc server
+    TIME_BETWEEN_MSGS = getattr(settings, 'TIME_BETWEEN_MSGS', 1) #in seconds
 
     COMMANDS = {
         'version': 'version_handler',
@@ -25,6 +26,8 @@ class BaseIrcBot(SingleServerIRCBot):
 
     def __init__(self):
         super(BaseIrcBot, self).__init__([(settings.SERVER,),], settings.NICK, settings.REALNAME)
+        self.last_sent = None
+
         self._init_loggers()
         self._init_modules()
         self.ircobj.add_global_handler("all_events", self.global_handler)
@@ -34,17 +37,27 @@ class BaseIrcBot(SingleServerIRCBot):
         for b in self.__class__.__bases__:
             self.COMMANDS.update(getattr(b, 'COMMANDS', {}))
             self.REGEXPS.update(getattr(b, 'REGEXPS', {}))
-            if hasattr(b, '_init'): # TODO: we may want to rename it to something like _init_bot or smtg
+            if hasattr(b, '_init'):
                 b._init(self)
 
 
     def send(self, target, msg):
+        # TODO : we should probably have a thread with a queue to send these messages
+        if not self.last_sent:
+            self.last_sent = datetime.datetime.now()
+            
+        if (datetime.datetime.now()- self.last_sent).seconds < self.TIME_BETWEEN_MSGS:
+            time.sleep(self.TIME_BETWEEN_MSGS)
+
         while len(msg) > self.MAX_MSG_LEN:
             ind = msg.rfind(" ", 0, self.MAX_MSG_LEN)
             buff = msg[ind:]
+            self.last_sent = datetime.datetime.now()
             self.server.privmsg(target, msg[:ind])
             msg = buff
-            time.sleep(1) # so we don't get disco for excess flood
+            time.sleep(self.TIME_BETWEEN_MSGS) # so we don't get disco for excess flood
+        
+        self.last_sent = datetime.datetime.now()
         self.server.privmsg(target, msg)   
 
 
