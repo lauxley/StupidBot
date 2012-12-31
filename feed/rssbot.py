@@ -2,7 +2,7 @@ import os.path
 import sqlite3
 import urlparse
 import datetime, time
-from threading import Timer
+from threading import Thread
 
 import feedparser
 
@@ -10,7 +10,12 @@ import settings
 
 
 def dt_to_sql(dt):
-    return datetime.datetime.strftime(dt, '%Y-%m-%d %H:%M:%S')
+    if type(dt) == datetime.datetime:
+        return datetime.datetime.strftime(dt, '%Y-%m-%d %H:%M:%S')
+    elif type(dt) == time.struct_time:
+        return datetime.datetime.fromtimestamp(time.mktime(dt))
+    return None
+
 def from_sql_dt(dt):
     return datetime.datetime.strptime(dt, '%Y-%m-%d %H:%M:%S')
 
@@ -36,20 +41,20 @@ class RssFeed():
     def fetch(self, conn):
         data = feedparser.parse(self.url)
 
-        self.entries = data['entries'][:RssBot.MAX_ENTRIES]
+        del self.entries
+        self.entries = data['entries']
 
         new_data = []
-        updated = datetime.datetime.strptime(data['updated'], '%a, %d %b %Y %H:%M:%S %Z')
+        updated = datetime.datetime.fromtimestamp(time.mktime(data['updated'])) #, '%a, %d %b %Y %H:%M:%S %Z'
 
         if updated != self.updated:
             for entry in data['entries']:
                 if self.last_entry == entry['id']:
-                    return new_data
+                    return []
                 else:
                     new_data.append(entry)
                     self.last_entry = entry.id
                     self.updated = updated
-
                     self.update(conn)
         return new_data
 
@@ -67,7 +72,7 @@ class RssBot():
         'addfeed':'addfeed_handler',
         'removefeed':'removefeed_handler',
         'feedlist':'feedlist_handler',
-        'info':'info_handler', # priv msg the selected feed entry
+        'feed':'feed_handler', # priv msg the selected feed entry
         }
 
 
@@ -113,10 +118,11 @@ class RssBot():
                 return feed, created
         try:
             last_entry = data['entries'][0]['id']
-            last_updated = datetime.datetime.strptime(data['updated'], '%a, %d %b %Y %H:%M:%S %Z')
+            last_updated = data['updated']
             feed = RssFeed(self._create_feed(feed_url, feed_title, last_entry, dt_to_sql(last_updated), chan))
             created = True
         except (IndexError, KeyError), e:
+            self.error_logger.warning('Invalid feed : %s' % e)
             return None, False
         
         self.feeds.append(feed)
@@ -133,17 +139,21 @@ class RssBot():
         cur.execute(sql, [feed_url,])
         return cur.fetchone()
 
+    def _fetch(self):
+        while(True):
+            for feed in self.feeds:
+                new_data = feed.fetch(self.conn)
+                for entry in new_data[:self.MAX_ENTRIES]:
+                    for chan in feed.channels:
+                        self.send(chan, self._tell(entry))
+                        time.sleep(1) # avoid to get kicked, TODO: should be managed in self.send
 
-    def _fetch_feeds(self, silence=False):
-        # scheduling to fetch
-        for feed in self.feeds:
-            new_data = feed.fetch(self.conn)
-            for entry in new_data[:self.MAX_ENTRIES]:
-                for chan in feed.channels:
-                    self.send(chan, self._tell(entry))
-                    time.sleep(1) # avoid to get kicked, TODO: should be managed in self.send
-        Timer(self.FETCH_TIME*60, self._fetch_feeds, ()).start()
+            time.sleep(self.FETCH_TIME*60)
 
+    def fetch_feeds(self):
+        thr = Thread(target=self._fetch)
+        thr.daemon = True
+        thr.start()
 
     def _tell(self, entry):
         return '%s - %s' % (entry['title'], entry['link'])
@@ -207,7 +217,7 @@ class RssBot():
                 most_recent = feed
         return most_recent.entries[0]
 
-    def info_handler(self, ev, *args):
+    def feed_handler(self, ev, *args):
         if not self.feeds:
             return ev.target, u'No rss feed added yet.'
 
@@ -235,4 +245,4 @@ class RssBot():
 
             except (TypeError, ValueError, IndexError):
                 return ev.target, u"Bad parameters."
-    info_handler.help = u"!info [FEED_TITLE] [#ENTRY_NUMBER{1-%d}] - sends you a private message with the content of the given entry, or the last fetched entry if none." % MAX_ENTRIES
+    feed_handler.help = u"!feed [FEED_TITLE [#ENTRY_NUMBER]] - sends you a private message with the content of the given entry, or the last fetched entry if none."
