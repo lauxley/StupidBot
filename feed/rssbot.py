@@ -51,7 +51,7 @@ class RssFeed():
         if updated != self.updated:
             for entry in data['entries']:
                 if self.last_entry == entry['id']:
-                    return new_data
+                    break
                 else:
                     new_data.append(entry)
 
