@@ -40,15 +40,21 @@ class RssFeed():
 
     def fetch(self, conn):
         # TODO : catch if feed changed and became invalid all of a sudden
+        # or if an entry has been deleted !
         data = feedparser.parse(self.url)
 
         del self.entries
         self.entries = data['entries']
 
         new_data = []
-        updated = datetime.datetime.strptime(data['updated'], '%a, %d %b %Y %H:%M:%S %Z')
+        upd = getattr(data,'updated',None) or getattr(data, 'published', None) or data['entries'][0]['published']
 
-        if updated != self.updated:
+
+        # because of http://bugs.python.org/issue6641
+        # im not using the utc information
+        updated = datetime.datetime.strptime(upd[:24], '%a, %d %b %Y %H:%M:%S')
+
+        if updated > self.updated:
             for entry in data['entries']:
                 if self.last_entry == entry['id']:
                     break
@@ -120,13 +126,15 @@ class RssBot():
         for feed in self.feeds:
             if feed.url == feed_url:
                 return feed, created
+ 
         try:
-            # check that it is a valid feed
             data = feedparser.parse(feed_url)
-
+            
             last_entry = data['entries'][0]['id']
-            last_updated = datetime.datetime.strptime(data['updated'], '%a, %d %b %Y %H:%M:%S %Z')
 
+            upd = getattr(data,'updated',None) or getattr(data, 'published', None) or data['entries'][0]['published']
+            last_updated = datetime.datetime.strptime(upd[:24], '%a, %d %b %Y %H:%M:%S')
+            
             feed = RssFeed(self._create_feed(feed_url, feed_title, last_entry, dt_to_sql(last_updated), chan))
             feed.entries = data['entries']
             created = True
@@ -242,6 +250,7 @@ class RssBot():
                         entryn = int(arg[1:])
 
                 if feedn is not None and entryn is not None:
+                    # TODO: different message if entryn > len(entries)
                     return ev.source.nick, self._tell_more(self.feeds[feedn], self.feeds[feedn].entries[entryn])
                 elif feedn is not None:
                     return ev.source.nick, self._tell_more(self.feeds[feedn], self.feeds[feedn].entries[0])
