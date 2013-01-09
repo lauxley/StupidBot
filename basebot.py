@@ -70,6 +70,7 @@ class BaseIrcBot(SingleServerIRCBot):
 
 
     def _init_loggers(self):
+        msg_formatter = logging.Formatter('%(asctime)s - %(message)s')
         formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
         if not os.path.isdir(settings.LOG_DIR):
@@ -78,7 +79,7 @@ class BaseIrcBot(SingleServerIRCBot):
         msg_logger = logging.getLogger('msgslog')
         msg_logger.setLevel(logging.DEBUG)
         handler = logging.handlers.TimedRotatingFileHandler(os.path.join(settings.LOG_DIR, 'daily.log'), when='midnight')
-        handler.setFormatter(formatter)
+        handler.setFormatter(msg_formatter)
         msg_logger.addHandler(handler)
         self.msg_logger = msg_logger
 
@@ -98,11 +99,17 @@ class BaseIrcBot(SingleServerIRCBot):
         for chan in settings.START_CHANNELS:
             self.connection.join(chan)
 
+
+    def log_msg(self, ev):
+        if ev.target and ev.source:
+            self.msg_logger.info('%s - %s: %s' % (ev.target, ev.source.nick, ev.arguments[0]))        
+            
     def global_handler(self, serv, ev):        
         try:
-            self.msg_logger.info('%s %s>%s: %s' % (ev.type, ev.source, ev.target, ev.arguments))
             response = None
             if ev.type in ["pubmsg", "privnotice"]:
+                self.log_msg(ev)
+                
                 msg = ev.arguments[0]
                 if msg[0] == '!':
                     try:
@@ -124,7 +131,7 @@ class BaseIrcBot(SingleServerIRCBot):
                                 target, response = ev.target, u"Not Implemented yet."
 
                     except KeyError, e:
-                        self.error_logger.warning('Invalid command : %s' % e)
+                        self.error_logger.warning('Invalid command : %s by %' % (e, ev.source))
                 else:
                     for regexp in self.REGEXPS.keys():
                         m = re.match(regexp, msg)
