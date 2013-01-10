@@ -171,5 +171,8 @@ class QuakeNetBot():
 
     def user_unknown_handler(self, match, ev):
         if settings.AUTH_ENABLE:
-            del self.auths[username]
+            username = match.group('username')
+            if self.auths.has_key(username):
+                del self.auths[username]
+
         return ev.target, u"No user with this name."
