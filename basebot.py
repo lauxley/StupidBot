@@ -131,7 +131,7 @@ class BaseIrcBot(SingleServerIRCBot):
                                 target, response = ev.target, u"Not Implemented yet."
 
                     except KeyError, e:
-                        self.error_logger.warning('Invalid command : %s by %' % (e, ev.source))
+                        self.error_logger.warning('Invalid command : %s by %s' % (e, ev.source))
                 else:
                     for regexp in self.REGEXPS.keys():
                         m = re.match(regexp, msg)
