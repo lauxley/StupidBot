@@ -12,15 +12,38 @@ from currency.currencybot import CurrencyBot
 from meteo.meteobot import MeteoBot
 from feed.rssbot import RssBot
 
-class StupidIrcBot(BaseIrcBot, RandBotMixin, CleverBotMixin, QuakeNetBot, CurrencyBot, MeteoBot, RssBot): #CalcBot (desactivated, so many potential problems)
-    # TODO : HgBot, GitBot
+
+class HelpCommand(BaseCommand):
+    HELP = u"""Display this help."""
+    def tell(self)
+        try:
+            cmd = self.options[0]
+        except IndexError,e:
+            msg = u"Here are the currently implemented commands : %s" % ', '.join(['!%s' % k for k in self.bot.COMMANDS.keys() if not getattr(self.bot.COMMANDS[k], 'is_hidden', False)])
+        else:
+            try:
+                msg = getattr(self, self.bot.COMMANDS[cmd]).HELP
+            except KeyError,e:
+                msg = u"No such command."
+        return msg
+
+
+class VersionCommand(BaseCommand):
+    HELP = u"Display the bot version."
+    def tell(self):
+        return u"version: %s" % self.bot.VERSION
+
+
+class PingCommand(BaseCommand):
+    def tell(self):
+        return u'pong'
+
+
+class StupidIrcBot(BaseIrcBot): #CalcBot (desactivated, so many potential problems)
     VERSION = '0.8'
 
-    #TBI:
-    # 'search'
-    # 'google'
-    # 'log' ? display a line from an old log
-    # poll bot
+    COMMANDS = {'help': HelpCommand, 'version': VersionCommand, 'Ping': PingCommand}
+    TRIGGERS = []
 
     def on_welcome(self, serv, ev):
         super(StupidIrcBot, self).on_welcome(serv, ev)
