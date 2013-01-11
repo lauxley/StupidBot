@@ -1,4 +1,6 @@
 #! -*- coding: utf-8 -*-
+import sys
+
 import settings
 
 from basebot import BaseIrcBot
@@ -51,4 +53,8 @@ class StupidIrcBot(BaseIrcBot, RandBotMixin, CleverBotMixin, QuakeNetBot, Curren
 
 if __name__ == '__main__':
     bot = StupidIrcBot()
-    bot.start()
+    try:
+        bot.start()
+    except e:
+        bot.error_logger.error('FATAL : %s', e)
+        sys.exit()
