@@ -22,6 +22,7 @@ class BaseCommand(object):
     on contrary, triggers are messages not aimed at the bot, that it catches.
     """
     NAME = u""
+    #ALIASES = [] # TODO
 
     # if True, only the user(s) defined in settings.ADMIN can issue this command
     REQUIRE_ADMIN = False 
@@ -38,48 +39,46 @@ class BaseCommand(object):
     TARGET = "target"
 
 
-    def __init__(self, bot):
+    def __init__(self, bot, ev):
         self.bot = bot
+        self.ev = ev
+        self.options = self._parse_options()
+        self.bot.error_logger.warning('Command issued by %s : %s' % (ev.source, self.NAME))
 
 
-    def _parse_options(self, ev):
-        return ev.arguments[0].split(" ")[1:]
+    def _parse_options(self):
+        return self.ev.arguments[0].split(" ")[1:]
 
 
-    def get_response(self, ev):
+    def get_response(self):
         """
         most of the time this will be the only method to implement
         """
         return u""
 
     
-    def process(self, ev):
+    def process(self, *args):
         if not self.REQUIRE_ADMIN or ev.source.nick in settings.ADMINS:
-            return self.get_response(ev)
+            msg = self.get_response()
         else:
-            return u"Sorry you need to be admin to issue this command."
+            msg = u"Sorry you need to be admin to issue this command."
+        self.bot.send(self.get_target(), msg)
 
 
-    def get_target(self, ev):
+    def get_target(self):
         if self.TARGET == "target":
             # if ev.type == "privmsgs" # TODO : handle private messages
-            target = ev.target
+            target = self.ev.target
         elif self.TARGET == "source":
-            target = ev.source.nick
+            target = self.ev.source.nick
         else:
             self.bot.error_logger("Invalid command target %s for command %s !" % (self.TARGET, self.__name__))
             target = None
         return target
 
 
-    def handle(self, ev):
-        options = self._parse_options(ev)
-        # self.bot.base_logger('command issued by %s : %s' % (ev.source, self.line))
-        
-        self.source = ev.source
-     
-        if target:
-            self.bot.send(target, self.process(ev))
+    def handle(self):
+        self.process()
 
 
 class BaseAuthCommand(BaseCommand):
@@ -88,10 +87,6 @@ class BaseAuthCommand(BaseCommand):
     it checks the auth_module to get the auth of the user issuing the command,
     as this can take some time, the result is asynchronous
     """
-
-    def callback(self, *args):
-        self.bot.send(args[0], self.get_response(*args))
-
         
     def get_user_from_line(self, ev):
         """
@@ -103,8 +98,7 @@ class BaseAuthCommand(BaseCommand):
 
 
     def handle(self, ev):
-        options = self._parse_options(ev)
-        self.auth_module.get_user(self.get_user_from_line(ev), self.callback, options)
+        self.bot.auth_module.get_user(self.get_user_from_line(ev), self)
 
 
 class BaseTrigger(object):
@@ -115,7 +109,12 @@ class BaseTrigger(object):
 
     REGEXP = r''
 
-    def handle(self, ev):
+    def __init__(self, bot, ev):
+        self.bot = bot
+        self.ev = ev
+        self.bot.error_logger("Trigger matched %s for -%s" % (self.REGEXP, ev.arguments[0]))
+
+    def handle(self):
         pass
 
 
@@ -136,8 +135,8 @@ class BaseAuthModule(object):
     but in settings.AUTH_MODULE, and shouldn't implement the regular modules hooks
     the get_user method could be asynchronous in some case, and so will always return None
     """
-    def get_user(self, user, cb, args=[]):
-        cb(*args)
+    def get_user(self, user, command, *args):
+        command.process(*args)
         return None
 
 
@@ -154,20 +153,32 @@ class BaseIrcBot(SingleServerIRCBot):
         self._init_loggers()
 
         self.auth_module = getattr(settings, 'AUTH_MODULE', BaseAuthModule)
-        self.modules = {}
+
+        self.commands = {}
+        self.triggers = {}
+        self.modules = []
         self._init_modules()
 
         self.ircobj.add_global_handler("all_events", self.global_handler)
 
+        
 
     def _init_modules(self):
-        self.commands = {}
-        for module in settings.MODULES:
-            mod = module(self)
+        for command_class in self.COMMANDS:
+            self.commands.update({command_class.NAME : command_class})
+        for trigger_class in self.TRIGGERS:
+            self.triggers.update({trigger_class.REGEXP : trigger_class})
+
+        for module in getattr(settings, 'MODULES', []):
+            mod = module(self) # instantiate the module
+            self.modules.append(mod)
             if not isinstance(mod, BaseBotModule):
-                raise ImproperlyConfigured("%s is not a BaseBotModule subclass ! it should be." % module)
-            for command in module.COMMANDS:
-                self.commands.update({command.NAME : command(self)})
+                raise ImproperlyConfigured("%s is not a BaseBotModule subclass ! it should be." % mod.__class__)
+            for command_class in mod.COMMANDS:
+                self.commands.update({command_class.NAME : command_class})
+            for trigger_class in mod.TRIGGERS:
+                self.triggers.update({trigger_class.REGEXP : trigger_class})
+            
 
 
     def send(self, target, msg):
@@ -232,46 +243,31 @@ class BaseIrcBot(SingleServerIRCBot):
 
     # we dispatch all the handlers to the modules in case they have something to do
     def _dispatcher(self, serv, ev):
+        super(BaseIrcBot, self)._dispatcher(serv, ev)
         for module in self.modules:
             m = "on_" + ev.type
             if hasattr(module, m):
                 getattr(module, m)(serv, ev)
 
     def global_handler(self, serv, ev):
-        try:
-            response = None
-            if ev.type in ["pubmsg", "privnotice", "privmsgs"]:
-                self.log_msg(ev)
-                
-                msg = ev.arguments[0]
-                if msg[0] == self.COMMAND_PREFIX:
-                    try:
-                        cmd = msg[1:].split(' ')[0]
-                        self.commands[cmd].handle(ev)
-                        
-                        # hdl = getattr(self, self.COMMANDS[cmd])
-                        # if self.check_admin(hdl, ev):
-                        #     target, response = ev.target, self.get_needs_to_be_admin()
-                        # else:
-                        #     try:
-                        #         target, response = hdl(ev, *arguments)
-                        #     except NotImplementedError, e:
-                        #         target, response = ev.target, u"Not Implemented yet."
-
-                    except KeyError, e:
-                        self.error_logger.warning('Invalid command : %s by %s' % (e, ev.source))
-                else:
-                    for regexp in self.REGEXPS.keys():
-                        m = re.match(regexp, msg)
-                        if m:
-                            target, response = getattr(self, self.REGEXPS[regexp])(m, ev)
-                            # break # should we ?
-                if response:
-                    self.send(target, response)
+        # TODO: handle privmsgs
+        if ev.type in ["pubmsg", "privnotice", "privmsgs"]:
+            self.log_msg(ev)
+            
+            msg = ev.arguments[0]
+            if msg[0] == self.COMMAND_PREFIX:
+                try:
+                    cmd = msg[1:].split(' ')[0]
+                    self.commands[cmd](self, ev).handle()
+                except KeyError, e:
+                    self.error_logger.warning('Invalid command : %s by %s' % (e, ev.source))
+                except NotImplementedError, e:
+                    self.send(ev.target, u"Not implemented. Sorry !")
             else:
-                # TODO: handle privmsgs
-                pass
-        except IndexError:
-            pass
+                for regexp, trigger_class in self.triggers.items():
+                    m = re.match(regexp, msg)
+                    if m:
+                        trigger_class(self, ev).handle()
+
 
 

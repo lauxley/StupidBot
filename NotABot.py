@@ -3,7 +3,7 @@ import sys
 
 import settings
 
-from basebot import BaseIrcBot
+from basebot import BaseIrcBot, BaseCommand
 from rand.randbot import RandBotMixin
 from cleverbot.cleverircbot import CleverBotMixin
 from quakenet.quakebot import QuakeNetBot
@@ -14,35 +14,43 @@ from feed.rssbot import RssBot
 
 
 class HelpCommand(BaseCommand):
+    NAME = u'help'
     HELP = u"""Display this help."""
-    def tell(self)
-        try:
+
+    def get_response(self):
+        if self.options:
             cmd = self.options[0]
-        except IndexError,e:
-            msg = u"Here are the currently implemented commands : %s" % ', '.join(['!%s' % k for k in self.bot.COMMANDS.keys() if not getattr(self.bot.COMMANDS[k], 'is_hidden', False)])
-        else:
             try:
-                msg = getattr(self, self.bot.COMMANDS[cmd]).HELP
+                msg = self.bot.commands[cmd].HELP
             except KeyError,e:
                 msg = u"No such command."
+        else:
+            msg = u"Here are the currently implemented commands : %s" % ', '.join(['!%s' % k for k in self.bot.commands.keys() if not getattr(self.bot.commands[k], 'is_hidden', False)])
+
         return msg
 
 
 class VersionCommand(BaseCommand):
+    NAME = u'version'
     HELP = u"Display the bot version."
-    def tell(self):
+
+    def get_response(self):
         return u"version: %s" % self.bot.VERSION
 
 
 class PingCommand(BaseCommand):
-    def tell(self):
+    NAME = u'ping'
+    HELP = u'peng'
+
+    def get_response(self):
+        # TODO do a real pinglol ?
         return u'pong'
 
 
 class StupidIrcBot(BaseIrcBot): #CalcBot (desactivated, so many potential problems)
-    VERSION = '0.8'
+    VERSION = u'0.9'
 
-    COMMANDS = {'help': HelpCommand, 'version': VersionCommand, 'Ping': PingCommand}
+    COMMANDS = [HelpCommand, VersionCommand, PingCommand]
     TRIGGERS = []
 
     def on_welcome(self, serv, ev):
@@ -51,10 +59,11 @@ class StupidIrcBot(BaseIrcBot): #CalcBot (desactivated, so many potential proble
         if getattr(settings, 'AUTH_ENABLE', False):
             self.authentify()
         
-        try:
-            self.fetch_feeds()
-        except KeyboardInterupt:
-            pass
+        if 'RssBot' in settings.MODULES:
+            try:
+                self.fetch_feeds()
+            except KeyboardInterupt:
+                pass
 
 
     def get_user(self, user, cb=None, args=[]):
@@ -78,6 +87,6 @@ if __name__ == '__main__':
     bot = StupidIrcBot()
     try:
         bot.start()
-    except e:
+    except Exception, e:
         bot.error_logger.error('FATAL : %s', e)
-        sys.exit()
+        raise

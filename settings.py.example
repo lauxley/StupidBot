@@ -7,6 +7,8 @@ SERVER = u'euroserv.fr.quakenet.org'
 START_CHANNELS = ['#testenbois', ]
 ADMINS = ['your_nick', ] # TODO: use auth
 
+MODULES = []
+
 AUTH_ENABLE = False
 AUTH_BOT = "Q@CServe.quakenet.org"
 AUTH_LOGIN = "BotLogin"
@@ -15,3 +17,8 @@ AUTH_EMAIL = "botemail@whatever.com" # not used for now
 
 LOG_DIR = "logs"
 BACKUP_DIR = "backups"
+
+DEFAULT_CURRENCY = 'eur'
+OPEN_EXCHANGE_API_ID = u'your_open_exchange_api_id'
+
+WORLDWEATHERONLINE_API_KEY = u'your_world_weather_online_api_key'
