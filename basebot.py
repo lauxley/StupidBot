@@ -20,6 +20,7 @@ class BaseCommand(object):
     Abstract class for any command
     commands are specific messages send specifically for the bot to do something
     on contrary, triggers are messages not aimed at the bot, that it catches.
+
     """
     NAME = u""
     #ALIASES = [] # TODO
@@ -43,7 +44,7 @@ class BaseCommand(object):
         self.bot = bot
         self.ev = ev
         self.options = self._parse_options()
-        self.bot.error_logger.warning('Command issued by %s : %s' % (ev.source, self.NAME))
+        self.bot.error_logger.info('Command issued by %s : %s' % (ev.source, self.NAME))
 
 
     def _parse_options(self):
@@ -57,11 +58,8 @@ class BaseCommand(object):
         return u""
 
     
-    def process(self, *args):
-        if not self.REQUIRE_ADMIN or ev.source.nick in settings.ADMINS:
-            msg = self.get_response()
-        else:
-            msg = u"Sorry you need to be admin to issue this command."
+    def process(self, *args, **kwargs):
+        msg = self.get_response()
         self.bot.send(self.get_target(), msg)
 
 
@@ -72,14 +70,27 @@ class BaseCommand(object):
         elif self.TARGET == "source":
             target = self.ev.source.nick
         else:
-            self.bot.error_logger("Invalid command target %s for command %s !" % (self.TARGET, self.__name__))
+            self.bot.error_logger.error("Invalid command target %s for command %s !" % (self.TARGET, self.__name__))
             target = None
-        return target
+        return target        
 
+
+    def get_needs_to_be_admin(self):
+        return u"Sorry you need to be admin to issue this command."
+
+
+    def check_admin(self, user):        
+        if user in settings.ADMINS:
+            self.process()
+        else:
+            self.bot.send(self.ev.target, self.get_needs_to_be_admin())
+        
 
     def handle(self):
-        self.process()
-
+        if self.REQUIRE_ADMIN:
+            self.bot.auth_module.get_user(self.ev.source.nick, self.check_admin)
+        else:
+            self.process()
 
 class BaseAuthCommand(BaseCommand):
     """
@@ -88,17 +99,35 @@ class BaseAuthCommand(BaseCommand):
     as this can take some time, the result is asynchronous
     """
         
-    def get_user_from_line(self, ev):
+    def get_user_from_line(self):
         """
-        override this if you don't want to check the auth
-        from the user who issued the command, 
-        but from one of the command options
+        override this if the default behavior is not what you want
+        by default if there is at least an option,
+        we check the auth from the first option, if not
+        from the user who issued the command
         """
-        return ev.source.nick
+        if self.options:
+            return self.options[0]
+        return self.ev.source.nick
 
 
-    def handle(self, ev):
-        self.bot.auth_module.get_user(self.get_user_from_line(ev), self)
+    def check_admin(self, user):
+        if user in settings.ADMINS:
+            self.bot.auth_module.get_user(self.get_user_from_line(), self.process)
+        else:
+            self.bot.send(self.ev.target, self.get_needs_to_be_admin())
+
+
+    def handle(self):
+        if self.REQUIRE_ADMIN:
+            self.bot.auth_module.get_user(self.ev.source.nick, self.check_admin)
+        else:
+            self.bot.auth_module.get_user(self.get_user_from_line(), self.process)
+
+
+    def process(self, user, *args, **kwargs):
+        self.user = user
+        super(BaseAuthCommand, self).process(*args, **kwargs)
 
 
 class BaseTrigger(object):
@@ -109,14 +138,18 @@ class BaseTrigger(object):
 
     REGEXP = r''
 
-    def __init__(self, bot, ev):
+    def __init__(self, bot, match, ev):
         self.bot = bot
+        self.match = match
         self.ev = ev
-        self.bot.error_logger("Trigger matched %s for -%s" % (self.REGEXP, ev.arguments[0]))
+        self.bot.error_logger.info("Trigger matched %s for -%s" % (self.REGEXP, ev.arguments[0]))
 
     def handle(self):
-        pass
+        # this method is just here to be homogenous with BaseCommand
+        self.process()
 
+    def process(self):
+        pass
 
 class BaseBotModule(object):
     """
@@ -125,18 +158,25 @@ class BaseBotModule(object):
     COMMANDS = {}
     TRIGGERS = []
 
+    def __init__(self, bot):
+        self.bot = bot
 
-class BaseAuthModule(object):
+class BaseAuthModule(BaseBotModule):
     """
     This class is used to get the real user name of a user
     it can be overrided with settings.AUTH_MODULE, to use any irc auth method
 
-    an auth module is a bit of a specific module, it shouldn't lie in settings.MODULES
-    but in settings.AUTH_MODULE, and shouldn't implement the regular modules hooks
+    an auth module is a bit of a specific module,
+    it shouldn't lie in settings.MODULES but in settings.AUTH_MODULE
     the get_user method could be asynchronous in some case, and so will always return None
     """
-    def get_user(self, user, command, *args):
-        command.process(*args)
+    def get_user(self, user, cb, *args, **kwargs):
+        """
+        This method will be called anytime we need to get a real user from a user name
+        it is asynchronous, and will call command.process() passing user as an argument
+        once it knows his real name
+        """
+        cb(user=user, isauth=False, *args, **kwargs)
         return None
 
 
@@ -152,16 +192,32 @@ class BaseIrcBot(SingleServerIRCBot):
 
         self._init_loggers()
 
-        self.auth_module = getattr(settings, 'AUTH_MODULE', BaseAuthModule)
-
+        self.modules = []
         self.commands = {}
         self.triggers = {}
-        self.modules = []
-        self._init_modules()
 
         self.ircobj.add_global_handler("all_events", self.global_handler)
 
-        
+    def _load_module(self, module):
+        self.error_logger.info('Loading %s', module)
+
+        try:
+            mod = __import__('.'.join(module.split('.')[:-1]), globals(), locals(), [module.split('.')[-1]])
+        except ImportError, e:
+            self.error_logger.error("Can not import Module %s : %s" % (module, e))
+            return 
+
+        module_instance = getattr(mod, module.split('.')[-1])(self)
+
+        if not isinstance(module_instance, BaseBotModule):
+            raise ImproperlyConfigured("%s is not a BaseBotModule subclass ! it should be." % module)
+
+        for command_class in module_instance.COMMANDS:
+            self.commands.update({command_class.NAME : command_class})
+        for trigger_class in module_instance.TRIGGERS:
+            self.triggers.update({trigger_class.REGEXP : trigger_class})
+            
+        return module_instance
 
     def _init_modules(self):
         for command_class in self.COMMANDS:
@@ -169,16 +225,11 @@ class BaseIrcBot(SingleServerIRCBot):
         for trigger_class in self.TRIGGERS:
             self.triggers.update({trigger_class.REGEXP : trigger_class})
 
+        auth_module = getattr(settings, 'AUTH_MODULE', 'basebot.BaseAuthModule')
+        self.auth_module = self._load_module(auth_module)
+        
         for module in getattr(settings, 'MODULES', []):
-            mod = module(self) # instantiate the module
-            self.modules.append(mod)
-            if not isinstance(mod, BaseBotModule):
-                raise ImproperlyConfigured("%s is not a BaseBotModule subclass ! it should be." % mod.__class__)
-            for command_class in mod.COMMANDS:
-                self.commands.update({command_class.NAME : command_class})
-            for trigger_class in mod.TRIGGERS:
-                self.triggers.update({trigger_class.REGEXP : trigger_class})
-            
+            self.modules.append(self._load_module(module))
 
 
     def send(self, target, msg):
@@ -220,7 +271,7 @@ class BaseIrcBot(SingleServerIRCBot):
         self.msg_logger = msg_logger
 
         error_logger = logging.getLogger('errorlog')
-        error_logger.setLevel(logging.WARNING)
+        error_logger.setLevel(logging.INFO)
         handler = logging.FileHandler(os.path.join(settings.LOG_DIR, 'error.log'))
         handler.setFormatter(formatter)
         error_logger.addHandler(handler)
@@ -232,9 +283,31 @@ class BaseIrcBot(SingleServerIRCBot):
         # changing the default Buffer to ensure no encoding error
         self.connection.buffer = CompliantDecodingLineBuffer()
 
+        self._init_modules()
+
         for chan in settings.START_CHANNELS:
             self.connection.join(chan)
 
+    
+    def _on_join(self, serv, ev):
+        super(BaseIrcBot, self)._on_join(serv, ev)
+        self.msg_logger.info(u"%s joined the channel %s." % (ev.source.nick, ev.target))
+
+    def _on_nick(self, serv, ev):
+        super(BaseIrcBot, self)._on_nick(serv, ev)
+        self.msg_logger.info(u"%s is now known as %s." % (ev.source.nick, ev.target))
+
+    def _on_part(self, serv, ev):
+        super(BaseIrcBot, self)._on_part(serv, ev)
+        self.msg_logger.info(u"%s left the channel %s." % (ev.source.nick, ev.target))
+
+    def _on_kick(self, serv, ev):
+        super(BaseIrcBot, self)._on_kick(serv, ev)
+        self.msg_logger.info(u"%s was kicked from %s." % (ev.source.nick, ev.target))
+
+    def _on_quit(self, serv, ev):
+        super(BaseIrcBot, self)._on_quit(serv, ev)
+        self.msg_logger.info(u"%s left." % (ev.source.nick))
 
     def log_msg(self, ev):
         if ev.target and ev.source:
@@ -264,10 +337,11 @@ class BaseIrcBot(SingleServerIRCBot):
                 except NotImplementedError, e:
                     self.send(ev.target, u"Not implemented. Sorry !")
             else:
+                
                 for regexp, trigger_class in self.triggers.items():
                     m = re.match(regexp, msg)
                     if m:
-                        trigger_class(self, ev).handle()
+                        trigger_class(self, m, ev).handle()
 
 
 
