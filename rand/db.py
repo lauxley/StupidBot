@@ -102,10 +102,11 @@ class RandDb(object):
 
 
     def get_stats(self, user, dt, allrolls=False):
+        # TODO : fix pos
         cur = self.conn.cursor()
         if not dt:
             dt = datetime.datetime(2000, 1, 1) # ugly
-        sql = "SELECT AVG(value) as a, COUNT(*) as c, MIN(value) as min, MAX(value) as max FROM rolls WHERE valid=? AND roll_on >= ? GROUP BY user HAVING user = ?"
+        sql = "SELECT AVG(value) as a, COUNT(*) as c, MIN(value) as min, MAX(value) as max FROM rolls WHERE valid>=? AND roll_on >= ? GROUP BY user HAVING user = ?"
         cur.execute(sql, [int(not allrolls), self.sql_dt(dt), user])
         r = cur.fetchone()
         

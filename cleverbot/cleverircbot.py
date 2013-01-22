@@ -2,16 +2,19 @@
 import cleverbot
 import settings
 
-class CleverBotMixin():
-    is_bot_module = True
-    REGEXPS = {
-        r'(?P<me>%s):?(?P<msg>.*)' % settings.NICK : 'highligh_handler',
-        }
+from basebot import BaseBotModule, BaseTrigger
 
-    def _init(self):
-        self.brain = cleverbot.Session()
+class CleverBotTrigger(BaseTrigger):
+    REGEXP = r'(?P<me>%s):?(?P<msg>.*)' % settings.NICK
 
-    # REGEXPS HANDLERS
-    def highligh_handler(self, match, ev):
-        return ev.target, self.brain.Ask(match.group('msg').encode('ascii', 'replace'))
+    def process(self):
+        # TODO : should be asynchronous
+        self.bot.send(self.ev.target, self.bot.brain.Ask(self.match.group('msg').encode('ascii', 'replace')))
 
+class CleverBotModule(BaseBotModule):
+    COMMANDS = []
+    TRIGGERS = [CleverBotTrigger]
+
+    def __init__(self, bot):
+        super(CleverBotModule, self).__init__(bot)
+        self.bot.brain = cleverbot.Session()

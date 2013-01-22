@@ -1,47 +1,58 @@
-import settings
 from openexchange.simpleapi import convert, get_currencies
 
-class CurrencyBot():
-    COMMANDS = {
-        'cur': 'currency_handler',
-        'curency': 'currency_handler',
-        'currencies': 'currencies_handler',
-        }
+import settings
 
+from basebot import BaseBotModule, BaseCommand, BaseTrigger
+
+class CurrencyCommand(BaseCommand):
+    NAME = "currency"
+    ALIASES = ["cur",]
+    HELP = u"!currency FROMCUR [TOCUR] [AMOUNT] - for a list of all currencies, check !currencies."
+    
     default_currency = getattr(settings,'DEFAULT_CURRENCY', 'eur')
     oops = u'wrong parameters, or service unreachable.'
 
-    def currency_handler(self, ev, *args):
-        if len(args) == 3 and args[2].isdigit():
-            from_curr = args[0]
-            to_curr = args[1]
-            amount = float(args[2])
-        elif len(args) == 2 and args[1].isdigit():
-            from_curr = args[0]
-            to_curr = self.default_currency
-            amount = float(args[1])
-        elif len(args) == 2:
-            from_curr = args[0]
-            to_curr = args[1]
-            amount = 1
-        elif len(args) == 1:
-            from_curr = args[0]
-            to_curr = self.default_currency
-            amount = 1
+    def _parse_options(self):
+        super(CurrencyCommand, self)._parse_options()
+        self.cmdline_error = False
+
+        if len(self.options) == 3 and self.options[2].isdigit():
+            self.from_curr = self.options[0]
+            self.to_curr = self.options[1]
+            self.amount = float(self.options[2])
+        elif len(self.options) == 2 and self.options[1].isdigit():
+            self.from_curr = self.options[0]
+            self.to_curr = self.default_currency
+            self.amount = float(self.options[1])
+        elif len(self.options) == 2:
+            self.from_curr = self.options[0]
+            self.to_curr = self.options[1]
+            self.amount = 1
+        elif len(self.options) == 1:
+            self.from_curr = self.options[0]
+            self.to_curr = self.default_currency
+            self.amount = 1
         else:
-            return ev.target, self.oops
+            self.cmdline_error = True
         
-        c = convert(from_curr=from_curr, to_curr=to_curr, amount=amount)
-        if c is None:
-            return ev.target, self.oops
+
+    def get_response(self):
+        c = convert(from_curr=self.from_curr, to_curr=self.to_curr, amount=self.amount)
+        if c is None or self.cmdline_error:
+            return self.oops
         
-        return ev.target, '%s %s = %s %s' % (amount, from_curr, c, to_curr)
-    currency_handler.help = u"!currency FROMCUR [TOCUR] [AMOUNT] - for a list of all currencies, check !currencies."
+        return u'%s %s = %s %s' % (self.amount, self.from_curr, c, self.to_curr)
 
 
-    def currencies_handler(self, ev, *args):
+class CurrenciesCommand(BaseCommand):
+    NAME = "currencies"
+    HELP = u"!currencies - a list of all available currencies"
+
+    def get_response(self):
         curs = get_currencies()
         if not curs:
-            return ev.target, self.oops
-        return ev.target, ', '.join(curs)
-    currencies_handler.help = u"!currencies - a list of all available currencies"
+            return self.oops
+        return ', '.join(curs)
+
+class CurrencyModule(BaseBotModule):
+    COMMANDS = [ CurrencyCommand, CurrenciesCommand ]

@@ -1,4 +1,3 @@
-from multiprocessing import Pool
 import imp
 
 import settings
@@ -15,15 +14,17 @@ class Auth():
         self.check_authed()
 
 
-    def get_auth(self, cb=None, args=None):
+    def get_auth(self):
         if self.auth:
-            return self.auth
+            u = self.auth
         elif not self._checked:
             self.check_authed()
+            u = None
             # waiting for response
         else:
-            return self.nick
-        return None
+            u = self.nick
+
+        return u
 
 
     def process_callbacks(self):
@@ -44,6 +45,7 @@ class Auth():
         (11:56:00) Q: (notice) -Information for user NotABot (using account NotABot):
         """
         self._checked = True
+        self.is_checking = True
         self.bot.send(settings.AUTH_BOT, "WHOIS %s" % self.nick)
 
 
@@ -53,13 +55,15 @@ class Auth():
 
 
     def set_auth(self, auth):
-        self.process_callbacks()
+        self.is_checking = False
         self.auth = auth
+        self.process_callbacks()
 
 
 class AuthCommand(BaseAuthCommand):
     NAME = "auth"
-    HELP = u"!auth [user] : tell the auth status of user with Q, also force the check."
+    HELP = u"auth [user] : tell the auth status of user with Q, also force the check."
+
 
     def get_response(self):
         if self.user.nick:
@@ -70,16 +74,14 @@ class AuthCommand(BaseAuthCommand):
         else:
             return u"%s is unknown."
 
-# TODO : bot is not authed trigger
 
-class BaseAuthTrigger(BaseTrigger):
+class AuthTrigger(BaseTrigger):
     def handle(self):
         username = self.match.group('username')
         self.auth = self.bot.auth_module.get_auth(username)
-        self.auth._checked = True
         
 
-class NotAuthedTrigger(BaseAuthTrigger):
+class NotAuthedTrigger(AuthTrigger):
     REGEXP = r"User (?P<username>[^ ]+) is not authed\."
 
     def handle(self):
@@ -87,7 +89,7 @@ class NotAuthedTrigger(BaseAuthTrigger):
         self.auth.set_auth(None)
         
 
-class AuthedTrigger(BaseAuthTrigger):
+class AuthedTrigger(AuthTrigger):
     REGEXP = r"\-Information for user (?P<username>[^ ]+) \(using account (?P<authname>[^ ]+)\)"
 
     def handle(self):
@@ -96,22 +98,23 @@ class AuthedTrigger(BaseAuthTrigger):
         self.auth.set_auth(authname)
         
 
-class UserUnknownTrigger(BaseAuthTrigger):
+class UserUnknownTrigger(AuthTrigger):
     REGEXP = r"Can\'t find user (?P<username>[^ ]+)."
 
     def handle(self):
         super(UserUnknownTrigger, self).handle()
         # self.auth is a ghost Auth instance, created only to reply
         # to the command
-        if self.bot.auth_module.auths.has_key(username):
-            del self.bot.auth_module.auths[username]
+        if self.auth.nick in self.bot.auth_module.auths:
+            del self.bot.auth_module.auths[self.auth.nick]
 
 
 class BotNotAuthedTrigger(BaseTrigger):
     REGEXP = r"WHOIS is only available to authed users."
 
     def handle(self):
-        self.bot.error_logger.error(u'The bot is not Authed !')
+        self.bot.auth_module = BaseAuthModule
+        self.bot.error_logger.error(u'The bot is not Authed for some reason ! the Quakenet Auth Module has been desactivated.')
 
 
 class QuakeNetModule(BaseAuthModule):
@@ -123,10 +126,13 @@ class QuakeNetModule(BaseAuthModule):
           'name_from_users2': Auth()
     }
     """
+
+    # TODO : a trigger to catch a successfull authentification of the bot, or unload the module
+
     auths = {}
 
-    COMMANDS = [AuthCommand,]
-    TRIGGERS = [NotAuthedTrigger, AuthedTrigger, UserUnknownTrigger, BotNotAuthedTrigger]
+    COMMANDS = [ AuthCommand, ]
+    TRIGGERS = [ NotAuthedTrigger, AuthedTrigger, UserUnknownTrigger, BotNotAuthedTrigger ]
 
     
     def __init__(self, bot):
@@ -135,7 +141,7 @@ class QuakeNetModule(BaseAuthModule):
 
 
     def get_auth(self, user):
-        if self.auths.has_key(user):
+        if user in self.auths:
             auth = self.auths[user]
         else:
             auth = Auth(self.bot, user)
@@ -143,11 +149,15 @@ class QuakeNetModule(BaseAuthModule):
         return auth
 
 
-    def get_user(self, user, cb, *args, **kwargs):
+    def get_user(self, user, cb, *args):
         auth = self.get_auth(user)
         auth.add_callback(cb, args)
-        return auth.get_auth(cb, *args)
+        if not auth.is_checking:
+            auth.process_callbacks()
 
+
+    def get_username(self, user):
+        return user.auth or user.nick
 
     def on_welcome(self, serv, ev):
         self.authentify()
@@ -176,7 +186,7 @@ class QuakeNetModule(BaseAuthModule):
 
 
     def _on_namreply(self, c, e):
-                # e.arguments[0] == "@" for secret channels,
+        # e.arguments[0] == "@" for secret channels,
         #                     "*" for private channels,
         #                     "=" for others (public channels)
         # e.arguments[1] == channel
@@ -191,7 +201,3 @@ class QuakeNetModule(BaseAuthModule):
         """
         self.bot.error_logger.info("trying to authentify with Q")
         self.bot.server.privmsg(settings.AUTH_BOT, "AUTH %s %s" % (settings.AUTH_LOGIN, settings.AUTH_PASSWORD))
-
-
-    def get_authname(self, user):
-        return self.get_auth(user).auth

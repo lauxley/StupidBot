@@ -43,12 +43,15 @@ class BaseCommand(object):
     def __init__(self, bot, ev):
         self.bot = bot
         self.ev = ev
-        self.options = self._parse_options()
+        self._parse_options()
+        #if self.options is None:
+        #    pass # TODO : manage bad command lines here ?
+
         self.bot.error_logger.info('Command issued by %s : %s' % (ev.source, self.NAME))
 
 
     def _parse_options(self):
-        return self.ev.arguments[0].split(" ")[1:]
+        self.options = self.ev.arguments[0].split(" ")[1:]
 
 
     def get_response(self):
@@ -79,9 +82,13 @@ class BaseCommand(object):
         return u"Sorry you need to be admin to issue this command."
 
 
-    def check_admin(self, user):        
-        if user in settings.ADMINS:
-            self.process()
+    def _is_admin(self, user):
+        return user in settings.ADMINS
+
+
+    def check_admin(self, user, *args):        
+        if self._is_admin(self.bot.auth_module.get_username(user)):
+            self.process(*args)
         else:
             self.bot.send(self.ev.target, self.get_needs_to_be_admin())
         
@@ -112,7 +119,7 @@ class BaseAuthCommand(BaseCommand):
 
 
     def check_admin(self, user):
-        if user in settings.ADMINS:
+        if self._is_admin():
             self.bot.auth_module.get_user(self.get_user_from_line(), self.process)
         else:
             self.bot.send(self.ev.target, self.get_needs_to_be_admin())
@@ -126,8 +133,9 @@ class BaseAuthCommand(BaseCommand):
 
 
     def process(self, user, *args, **kwargs):
-        self.user = user
-        super(BaseAuthCommand, self).process(*args, **kwargs)
+        if user:
+            self.user = user
+        super(BaseAuthCommand, self).process()
 
 
 class BaseTrigger(object):
@@ -151,6 +159,26 @@ class BaseTrigger(object):
     def process(self):
         pass
 
+class BaseAuthTrigger(BaseTrigger):
+
+
+    def get_user_from_line(self):
+        """
+        override this if the default behavior is not what you want
+        """
+        return self.match.group('username')
+
+
+    def handle(self):
+        # this method is just here to be homogenous with BaseCommand
+        self.bot.auth_module.get_user(self.get_user_from_line(), self.process)
+    
+
+    def process(self, *args):
+        pass
+    
+
+
 class BaseBotModule(object):
     """
     Abstract class for any irc bot module
@@ -160,6 +188,7 @@ class BaseBotModule(object):
 
     def __init__(self, bot):
         self.bot = bot
+
 
 class BaseAuthModule(BaseBotModule):
     """
@@ -176,9 +205,12 @@ class BaseAuthModule(BaseBotModule):
         it is asynchronous, and will call command.process() passing user as an argument
         once it knows his real name
         """
-        cb(user=user, isauth=False, *args, **kwargs)
+        cb(user=user, *args, **kwargs)
         return None
 
+
+    def get_username(self, user):
+        return user
 
 class BaseIrcBot(SingleServerIRCBot):
     COMMAND_PREFIX = '!'
@@ -230,7 +262,7 @@ class BaseIrcBot(SingleServerIRCBot):
         
         for module in getattr(settings, 'MODULES', []):
             self.modules.append(self._load_module(module))
-
+        self.error_logger.info("Done loading modules.")
 
     def send(self, target, msg):
         # TODO : we should probably have a thread with a queue to send these messages
