@@ -12,8 +12,10 @@ import settings
 class CompliantDecodingLineBuffer(DecodingLineBuffer):
     errors = 'replace'
 
+
 class ImproperlyConfigured(Exception):
     pass
+
 
 class BaseCommand(object):
     """
@@ -23,7 +25,8 @@ class BaseCommand(object):
 
     """
     NAME = u""
-    #ALIASES = [] # TODO
+
+    ALIASES = []
 
     # if True, only the user(s) defined in settings.ADMIN can issue this command
     REQUIRE_ADMIN = False 
@@ -39,7 +42,6 @@ class BaseCommand(object):
     # * target : will respond to the same channel were the command was issued
     TARGET = "target"
 
-
     def __init__(self, bot, ev):
         self.bot = bot
         self.ev = ev
@@ -49,27 +51,25 @@ class BaseCommand(object):
 
         self.bot.error_logger.info('Command issued by %s : %s' % (ev.source, self.NAME))
 
-
     def _parse_options(self):
         self.options = self.ev.arguments[0].split(" ")[1:]
-
 
     def get_response(self):
         """
         most of the time this will be the only method to implement
         """
         return u""
-
     
     def process(self, *args, **kwargs):
         msg = self.get_response()
         self.bot.send(self.get_target(), msg)
 
-
     def get_target(self):
-        if self.TARGET == "target":
-            # if ev.type == "privmsgs" # TODO : handle private messages
-            target = self.ev.target
+        if self.TARGET == "target":    
+            if self.ev.type == "privmsg":
+                target = self.ev.source.nick
+            else:
+                target = self.ev.target
         elif self.TARGET == "source":
             target = self.ev.source.nick
         else:
@@ -77,14 +77,11 @@ class BaseCommand(object):
             target = None
         return target        
 
-
     def get_needs_to_be_admin(self):
         return u"Sorry you need to be admin to issue this command."
 
-
     def _is_admin(self, user):
         return user in settings.ADMINS
-
 
     def check_admin(self, user, *args):        
         if self._is_admin(self.bot.auth_module.get_username(user)):
@@ -92,12 +89,12 @@ class BaseCommand(object):
         else:
             self.bot.send(self.ev.target, self.get_needs_to_be_admin())
         
-
     def handle(self):
         if self.REQUIRE_ADMIN:
             self.bot.auth_module.get_user(self.ev.source.nick, self.check_admin)
         else:
             self.process()
+
 
 class BaseAuthCommand(BaseCommand):
     """
@@ -117,20 +114,17 @@ class BaseAuthCommand(BaseCommand):
             return self.options[0]
         return self.ev.source.nick
 
-
     def check_admin(self, user):
         if self._is_admin():
             self.bot.auth_module.get_user(self.get_user_from_line(), self.process)
         else:
             self.bot.send(self.ev.target, self.get_needs_to_be_admin())
 
-
     def handle(self):
         if self.REQUIRE_ADMIN:
             self.bot.auth_module.get_user(self.ev.source.nick, self.check_admin)
         else:
             self.bot.auth_module.get_user(self.get_user_from_line(), self.process)
-
 
     def process(self, user, *args, **kwargs):
         if user:
@@ -159,8 +153,8 @@ class BaseTrigger(object):
     def process(self):
         pass
 
-class BaseAuthTrigger(BaseTrigger):
 
+class BaseAuthTrigger(BaseTrigger):
 
     def get_user_from_line(self):
         """
@@ -168,16 +162,13 @@ class BaseAuthTrigger(BaseTrigger):
         """
         return self.match.group('username')
 
-
     def handle(self):
         # this method is just here to be homogenous with BaseCommand
         self.bot.auth_module.get_user(self.get_user_from_line(), self.process)
     
-
     def process(self, *args):
         pass
     
-
 
 class BaseBotModule(object):
     """
@@ -208,15 +199,14 @@ class BaseAuthModule(BaseBotModule):
         cb(user=user, *args, **kwargs)
         return None
 
-
     def get_username(self, user):
         return user
+
 
 class BaseIrcBot(SingleServerIRCBot):
     COMMAND_PREFIX = '!'
     MAX_MSG_LEN = getattr(settings, 'MAX_MSG_LEN', 450) #its 512 but we need some space for the command arguments, might depend on irc server
     TIME_BETWEEN_MSGS = getattr(settings, 'TIME_BETWEEN_MSGS', 1) #in seconds
-
 
     def __init__(self):
         super(BaseIrcBot, self).__init__([(settings.SERVER,),], settings.NICK, settings.REALNAME)
@@ -246,16 +236,24 @@ class BaseIrcBot(SingleServerIRCBot):
 
         for command_class in module_instance.COMMANDS:
             self.commands.update({command_class.NAME : command_class})
+            for alias in command_class.ALIASES:
+                self.commands.update({alias : command_class})
+            command_class.module = module_instance
         for trigger_class in module_instance.TRIGGERS:
             self.triggers.update({trigger_class.REGEXP : trigger_class})
+            trigger_class.module = module_instance
             
         return module_instance
 
     def _init_modules(self):
         for command_class in self.COMMANDS:
             self.commands.update({command_class.NAME : command_class})
+            for alias in command_class.ALIASES:
+                self.commands.update({alias : command_class})
+            command_class.module = self
         for trigger_class in self.TRIGGERS:
             self.triggers.update({trigger_class.REGEXP : trigger_class})
+            trigger_class.module = self
 
         auth_module = getattr(settings, 'AUTH_MODULE', 'basebot.BaseAuthModule')
         self.auth_module = self._load_module(auth_module)
@@ -283,10 +281,8 @@ class BaseIrcBot(SingleServerIRCBot):
         self.last_sent = datetime.datetime.now()
         self.server.privmsg(target, msg)   
 
-
     def get_needs_to_be_admin(self):
         return "Sorry, you can't do that by yourself, ask %s" % (" or ".join(settings.ADMINS))
-
 
     def _init_loggers(self):
         msg_formatter = logging.Formatter('%(asctime)s - %(message)s')
@@ -309,7 +305,6 @@ class BaseIrcBot(SingleServerIRCBot):
         error_logger.addHandler(handler)
         self.error_logger = error_logger
 
-
     def on_welcome(self, serv, ev):
         self.server = serv
         # changing the default Buffer to ensure no encoding error
@@ -320,7 +315,6 @@ class BaseIrcBot(SingleServerIRCBot):
         for chan in settings.START_CHANNELS:
             self.connection.join(chan)
 
-    
     def _on_join(self, serv, ev):
         super(BaseIrcBot, self)._on_join(serv, ev)
         self.msg_logger.info(u"%s joined the channel %s." % (ev.source.nick, ev.target))
@@ -345,7 +339,6 @@ class BaseIrcBot(SingleServerIRCBot):
         if ev.target and ev.source:
             self.msg_logger.info('%s - %s: %s' % (ev.target, ev.source.nick, ev.arguments[0]))        
 
-
     # we dispatch all the handlers to the modules in case they have something to do
     def _dispatcher(self, serv, ev):
         super(BaseIrcBot, self)._dispatcher(serv, ev)
@@ -355,8 +348,7 @@ class BaseIrcBot(SingleServerIRCBot):
                 getattr(module, m)(serv, ev)
 
     def global_handler(self, serv, ev):
-        # TODO: handle privmsgs
-        if ev.type in ["pubmsg", "privnotice", "privmsgs"]:
+        if ev.type in ["pubmsg", "privnotice", "privmsg"]:
             self.log_msg(ev)
             
             msg = ev.arguments[0]
@@ -374,6 +366,3 @@ class BaseIrcBot(SingleServerIRCBot):
                     m = re.match(regexp, msg)
                     if m:
                         trigger_class(self, m, ev).handle()
-
-
-

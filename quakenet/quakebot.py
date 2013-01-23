@@ -13,7 +13,6 @@ class Auth():
         self.bot = bot
         self.check_authed()
 
-
     def get_auth(self):
         if self.auth:
             u = self.auth
@@ -26,14 +25,12 @@ class Auth():
 
         return u
 
-
     def process_callbacks(self):
         for cb in self.callbacks:
             if not cb.get('_lock', False):
                 cb['_lock'] = True
                 cb['fn'](self, *cb['args'])
                 del cb
-
             
     def check_authed(self):
         """
@@ -48,11 +45,9 @@ class Auth():
         self.is_checking = True
         self.bot.send(settings.AUTH_BOT, "WHOIS %s" % self.nick)
 
-
     def add_callback(self, cb, args):
         if cb:
             self.callbacks.append({'fn':cb,'args':args})
-
 
     def set_auth(self, auth):
         self.is_checking = False
@@ -63,7 +58,6 @@ class Auth():
 class AuthCommand(BaseAuthCommand):
     NAME = "auth"
     HELP = u"auth [user] : tell the auth status of user with Q, also force the check."
-
 
     def get_response(self):
         if self.user.nick:
@@ -133,12 +127,10 @@ class QuakeNetModule(BaseAuthModule):
 
     COMMANDS = [ AuthCommand, ]
     TRIGGERS = [ NotAuthedTrigger, AuthedTrigger, UserUnknownTrigger, BotNotAuthedTrigger ]
-
     
     def __init__(self, bot):
         super(QuakeNetModule, self).__init__(bot)
         self.authentify()
-
 
     def get_auth(self, user):
         if user in self.auths:
@@ -148,29 +140,21 @@ class QuakeNetModule(BaseAuthModule):
             self.auths[user] = auth
         return auth
 
-
     def get_user(self, user, cb, *args):
         auth = self.get_auth(user)
         auth.add_callback(cb, args)
         if not auth.is_checking:
             auth.process_callbacks()
 
-
     def get_username(self, user):
         return user.auth or user.nick
-
-    def on_welcome(self, serv, ev):
-        self.authentify()
-
 
     def _on_join(self, serv, ev):
         nick = ev.source.nick
         self.auths[nick] = Auth(self.bot, nick)
 
-
     #def _on_part(self, c, e):
     #def _on_kick(self, c, e):
-
 
     def _on_nick(self, c, e):
         before = e.source.nick
@@ -179,11 +163,9 @@ class QuakeNetModule(BaseAuthModule):
         del self.auths[before]
         self.auths[after] = auth
 
-
     def _on_quit(self, c, e):
         nick = e.source.nick
         del self.auths[nick]
-
 
     def _on_namreply(self, c, e):
         # e.arguments[0] == "@" for secret channels,
@@ -194,10 +176,9 @@ class QuakeNetModule(BaseAuthModule):
         # TODO
         pass
 
-
     def authentify(self):
         """
         this is highly server specific !
         """
-        self.bot.error_logger.info("trying to authentify with Q")
-        self.bot.server.privmsg(settings.AUTH_BOT, "AUTH %s %s" % (settings.AUTH_LOGIN, settings.AUTH_PASSWORD))
+        self.bot.error_logger.info("Authentifying with Q")
+        self.bot.send(settings.AUTH_BOT, "AUTH %s %s" % (settings.AUTH_LOGIN, settings.AUTH_PASSWORD))
