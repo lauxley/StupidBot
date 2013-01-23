@@ -4,7 +4,7 @@ from datetime import date, timedelta
 
 import settings
 
-METEO_URL = u'http://free.worldweatheronline.com/feed/weather.ashx?q={q}&format=json&num_of_days=2&key={api_key}'
+METEO_URL = u'http://free.worldweatheronline.com/feed/weather.ashx?q={q}&format=json&num_of_days=5&key={api_key}'
 API_KEY = settings.WORLDWEATHERONLINE_API_KEY
 
 def _get_data(url):
@@ -57,8 +57,18 @@ def get_weather(location, qdate='tomorow'):
             elif qdate == "today":
                 root = jd['weather'][0]
                 day = date.today()
-            else:
-                root = jd['weather'][1] # tomorrow
+            elif qdate == "weekend":
+                # this will raise an IndexError from saturday to monday
+                # because the data only contains 5 days
+
+                from IPython import embed
+                embed()
+
+                index = 7-int(date.today().strftime('%w'))
+                root = jd['weather'][index]
+                day = date.today() + timedelta(days=index)
+            else: # tomorrow by default
+                root = jd['weather'][1]
                 day = date.today() + timedelta(days=1)
 
             # TODO: manage up to 5 days ahead
@@ -70,9 +80,8 @@ def get_weather(location, qdate='tomorow'):
             else:
                 temp = (root['tempMinC'], root['tempMaxC'])
 
-            return (location, weather, temp, precip, day)
+            return (location, weather, temp, precip, day), None
 
         except (ValueError, IndexError, KeyError), e:
-            pass
-    return None
+            return None, e
     

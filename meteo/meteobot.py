@@ -12,10 +12,10 @@ class MeteoCommand(BaseAuthCommand):
     ALIASES = ["weather",]
 
     # custom
-    DATE_REQUEST_CHOICES = ['current', 'today', 'tomorrow'] #TODO : weekend
+    DATE_REQUEST_CHOICES = ['current', 'today', 'tomorrow', 'weekend']
     oops = u"Wrong parameters, or service unreachable."
 
-    HELP = u"meteo CITY[,COUNTRY] [%s]" % '|'.join(DATE_REQUEST_CHOICES)
+    HELP = u"meteo CITY[,COUNTRY] [%s] - Note that weekend is only available from Tuesday to Friday." % '|'.join(DATE_REQUEST_CHOICES)
 
     def get_user_from_line(self):
         return self.ev.source.nick
@@ -27,20 +27,18 @@ class MeteoCommand(BaseAuthCommand):
         day = 'tomorrow'
         
         for arg in self.options:
-            if arg == 'current':
-                day = 'current'
-            elif arg == 'today':
-                day = 'today'
-            elif arg == 'tomorrow':
-                day = 'tomorrow'
+            if arg in ['current', 'today', 'tomorrow', 'weekend']:
+                day = arg
             else:
                 location = unidecode(arg)
 
         self.module.user_location_map[user] = location
 
         # TODO : this is blocking, is it a good idea ?
-        weather = get_weather(location, day)
+        weather, error = get_weather(location, day)
         if not weather:
+            if error:
+                self.module.bot.error_logger.error("Cannot fetch the weather : %s" % error)
             return self.oops
 
         if type(weather[2]) == tuple:

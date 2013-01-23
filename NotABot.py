@@ -40,7 +40,7 @@ class PingCommand(BaseCommand):
 
 
 class StupidIrcBot(BaseIrcBot): #CalcBot (desactivated, so many potential problems)
-    VERSION = u'0.9'
+    VERSION = u'0.9.1'
 
     COMMANDS = [HelpCommand, VersionCommand, PingCommand]
     TRIGGERS = []

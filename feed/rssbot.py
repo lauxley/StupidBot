@@ -39,13 +39,17 @@ class RssFeed(object):
     def tell(self, entryn=0):
         try:
             return u'%s : %s - %s' % (self.title, self.entries[entryn].title, self.entries[entryn].link)
-        except (IndexError, ValueError), e:
+        except (IndexError, AttributeError), e:
             self.module.bot.error_logger.error("Bad parameter to RssFeed.tell : %s" % e)
             return u'Bad parameters.'
 
     def tell_more(self, entryn=0):
-        # TODO: once the bot.send is rebuild to accept lists
-        return self._tell(entryn)
+        try:
+            entry = self.entries[entryn]
+            return [entry.title, entry.summary, entry.link]
+        except (IndexError, AttributeError), e:
+            self.module.bot.error_logger.error("Bad parameter to RssFeed.tell : %s" % e)
+            return u'Bad parameters.'
 
     def update(self, conn):
         cur = conn.cursor()
@@ -166,12 +170,14 @@ class FeedCommand(BaseCommand):
     """
     TODO: 
     * log old entries
-    * pass a date to !feed 
+    * & pass a date to !feed 
     * search interface (for example title=foobar)
+    * strip the html code or even better find the attribute without html code
     """
 
     NAME = "feed"
     HELP = u"!feed [FEED_TITLE [#ENTRY_NUMBER]] - sends you a private message with the content of the given entry, or the last fetched entry if none."
+    TARGET = "source"
     
     def get_last_feed(self):
         most_recent = self.module.feeds[0]
@@ -185,22 +191,17 @@ class FeedCommand(BaseCommand):
         if not self.module.feeds:
             return u'No rss feed added yet.'
 
-        if len(self.options) == 0:
-            feed = self.get_last_entry()
-            return feed.tell_more(entryn=0)
-        else:
-            entryn = 0
-            for arg in self.options:
-                if arg.isdigit():
-                    entryn = int(arg)
-                for f in self.module.feeds:
-                    if f.title == arg:
-                        feed = f
-                        break
-            if feed:
-                return feed.tell_more(entryn=entryn)
-            else:
-                return u"Bad parameters."
+        entryn = 0
+        feed = self.get_last_feed()
+        for arg in self.options:
+            if arg.isdigit():
+                entryn = int(arg)
+            for f in self.module.feeds:
+                if f.title == arg:
+                    feed = f
+                    break
+
+        return feed.tell_more(entryn=entryn)
 
 
 class RssModule(BaseBotModule):
@@ -215,7 +216,7 @@ class RssModule(BaseBotModule):
     FETCH_TIME = getattr(settings, 'FEED_FETCH_TIME', 2) # in minutes
     MAX_ENTRIES = getattr(settings, 'FEED_MAX_ENTRIES', 5) # maximum entries to display when fetching a feed
 
-    COMMANDS = [ AddFeedCommand, FeedListCommand, FeedRemoveCommand ]
+    COMMANDS = [ AddFeedCommand, FeedListCommand, FeedRemoveCommand, FeedCommand ]
  
     def __init__(self, bot):
         super(RssModule, self).__init__(bot)
@@ -287,13 +288,13 @@ class RssModule(BaseBotModule):
         return cur.fetchone()
 
     def _fetch(self):
+        # polling
         while(True):
             for feed in self.feeds:
                 new_data = feed.fetch(self.feed_conn)
                 for n, entry in enumerate(new_data[:self.MAX_ENTRIES]):
                     for chan in feed.channels:
                         self.bot.send(chan, feed.tell(entryn=n))
-                        time.sleep(self.bot.TIME_BETWEEN_MSGS) # avoid to get kicked, TODO: should be managed in self.send
 
             time.sleep(self.FETCH_TIME*60)
 

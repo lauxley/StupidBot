@@ -1,6 +1,8 @@
 import logging
 import os
 import re
+from threading import Thread
+from Queue import Queue
 import datetime, time
 from logging import handlers
 
@@ -47,7 +49,8 @@ class BaseCommand(object):
         self.ev = ev
         self._parse_options()
         #if self.options is None:
-        #    pass # TODO : manage bad command lines here ?
+        #    pass # TODO : manage bad command lines here ? 
+        # like do a Try Catch on a custom exception like BadParameters or BadCommandLine or whatever
 
         self.bot.error_logger.info('Command issued by %s : %s' % (ev.source, self.NAME))
 
@@ -203,6 +206,15 @@ class BaseAuthModule(BaseBotModule):
         return user
 
 
+class Message():
+    """
+    only a small helper to help with the msg queue
+    """
+    def __init__(self, target, text):
+        self.target = target
+        self.text = text
+
+
 class BaseIrcBot(SingleServerIRCBot):
     COMMAND_PREFIX = '!'
     MAX_MSG_LEN = getattr(settings, 'MAX_MSG_LEN', 450) #its 512 but we need some space for the command arguments, might depend on irc server
@@ -210,7 +222,10 @@ class BaseIrcBot(SingleServerIRCBot):
 
     def __init__(self):
         super(BaseIrcBot, self).__init__([(settings.SERVER,),], settings.NICK, settings.REALNAME)
+
         self.last_sent = None
+        self.msg_queue = Queue() # message queue
+        self._start_msg_consumer()
 
         self._init_loggers()
 
@@ -262,24 +277,40 @@ class BaseIrcBot(SingleServerIRCBot):
             self.modules.append(self._load_module(module))
         self.error_logger.info("Done loading modules.")
 
-    def send(self, target, msg):
-        # TODO : we should probably have a thread with a queue to send these messages
-        if not self.last_sent:
-            self.last_sent = datetime.datetime.now()
-            
-        if (datetime.datetime.now()- self.last_sent).seconds < self.TIME_BETWEEN_MSGS:
-            time.sleep(self.TIME_BETWEEN_MSGS)
 
-        while len(msg) > self.MAX_MSG_LEN:
-            ind = msg.rfind(" ", 0, self.MAX_MSG_LEN)
-            buff = msg[ind:]
+    def _start_msg_consumer(self):
+        t = Thread(target=self.msg_consumer)
+        t.daemon = True
+        t.start()
+
+    def msg_consumer(self):
+        while True:
+            msg = self.msg_queue.get()
+
+            if not self.last_sent:
+                self.last_sent = datetime.datetime.now()
+            
+            if (datetime.datetime.now()- self.last_sent).seconds < self.TIME_BETWEEN_MSGS:
+                time.sleep(self.TIME_BETWEEN_MSGS)
+
+            while len(msg.text) > self.MAX_MSG_LEN:
+                # TODO : break if there is no space in the msg
+                ind = msg.text.rfind(" ", 0, self.MAX_MSG_LEN)
+                buff = msg.text[ind:]
+                self.last_sent = datetime.datetime.now()
+                self.server.privmsg(msg.target, msg.text[:ind])
+                msg.text = buff
+                time.sleep(self.TIME_BETWEEN_MSGS) # so we don't get disco for excess flood
+            
             self.last_sent = datetime.datetime.now()
-            self.server.privmsg(target, msg[:ind])
-            msg = buff
-            time.sleep(self.TIME_BETWEEN_MSGS) # so we don't get disco for excess flood
-        
-        self.last_sent = datetime.datetime.now()
-        self.server.privmsg(target, msg)   
+            self.server.privmsg(msg.target, msg.text)
+
+    def send(self, target, msg):
+        if type(msg) in [list, set]:
+            for m in msg:
+                self.msg_queue.put(Message(target, m))
+        else:
+            self.msg_queue.put(Message(target, msg))
 
     def get_needs_to_be_admin(self):
         return "Sorry, you can't do that by yourself, ask %s" % (" or ".join(settings.ADMINS))
