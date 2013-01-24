@@ -22,7 +22,6 @@ class RandCommand(BaseAuthCommand):
 class TrajRandTrigger(BaseAuthTrigger):
     REGEXP = r'(?P<username>[^ ]+)? ?obtient un (?P<roll>\d{1,3}) \(1-100\)'
 
-
     def handle(self):
         if self.ev.source.nick == 'Traj':
             user = self.get_user_from_line()
@@ -30,14 +29,11 @@ class TrajRandTrigger(BaseAuthTrigger):
                 user = 'Traj'
             self.bot.auth_module.get_user(user, self.process)
 
-
     def process(self, user, *args):
         # TODO : check that the self.ev.source is really Traj (authed as such)
         roll = self.match.group('roll')
         user = self.bot.auth_module.get_username(user)
         valid = self.bot.rand_db.add_entry(datetime.datetime.now(), user, roll)
-        msg = '%s rolled a %s.' % (user, str(roll))
-        self.bot.send(self.ev.target, msg)
 
 
 class StatsArgsMixin(object):
