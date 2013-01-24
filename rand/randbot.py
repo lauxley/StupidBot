@@ -33,7 +33,7 @@ class TrajRandTrigger(BaseAuthTrigger):
 
     def process(self, user, *args):
         # TODO : check that the self.ev.source is really Traj (authed as such)
-        valid = self.bot.rand_db.add_entry(datetime.datetime.now(), auth, roll)
+        valid = self.bot.rand_db.add_entry(datetime.datetime.now(), user.auth or user.nick, roll)
         roll = self.match.group('roll')
         user = self.bot.auth_module.get_username(user)
         msg = '%s rolled a %s.' % (user, str(roll))
