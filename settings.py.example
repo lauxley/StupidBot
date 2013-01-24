@@ -5,9 +5,17 @@ NICK = u'your bot name'
 REALNAME = u'the bot birth name'
 SERVER = u'euroserv.fr.quakenet.org'
 START_CHANNELS = ['#testenbois', ]
-ADMINS = ['your_nick', ] # TODO: use auth
+ADMINS = ['your_nick', ]
 
-MODULES = []
+MODULES = [
+    'rand.randbot.RandModule',
+    'meteo.meteobot.MeteoModule',
+    'cleverbot.cleverircbot.CleverBotModule',
+    'currency.currencybot.CurrencyModule',
+    'feed.rssbot.RssModule'
+]
+
+AUTH_MODULE = "quakenet.quakebot.QuakeNetModule"
 
 AUTH_ENABLE = False
 AUTH_BOT = "Q@CServe.quakenet.org"

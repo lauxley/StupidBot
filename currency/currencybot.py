@@ -12,8 +12,8 @@ class CurrencyCommand(BaseCommand):
     default_currency = getattr(settings,'DEFAULT_CURRENCY', 'eur')
     oops = u'wrong parameters, or service unreachable.'
 
-    def _parse_options(self):
-        super(CurrencyCommand, self)._parse_options()
+    def parse_options(self):
+        super(CurrencyCommand, self).parse_options()
         self.cmdline_error = False
 
         if len(self.options) == 3 and self.options[2].isdigit():
@@ -37,8 +37,11 @@ class CurrencyCommand(BaseCommand):
         
 
     def get_response(self):
-        c = convert(from_curr=self.from_curr, to_curr=self.to_curr, amount=self.amount)
-        if c is None or self.cmdline_error:
+        if not self.cmdline_error:
+            c = convert(from_curr=self.from_curr, to_curr=self.to_curr, amount=self.amount)
+            if c is None:
+                return self.oops
+        else:
             return self.oops
         
         return u'%s %s = %s %s' % (self.amount, self.from_curr, c, self.to_curr)

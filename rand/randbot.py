@@ -73,8 +73,8 @@ class StatsCommand(BaseAuthCommand, StatsArgsMixin):
     NAME = "stats"
     HELP = u"""stats [player1] [today|week|month|year|DDMMYYYY]: display the rand stats of a given user, or you if no username is given."""
 
-    def _parse_options(self):
-        super(StatsCommand, self)._parse_options() # hack
+    def parse_options(self):
+        super(StatsCommand, self).parse_options() # hack
         self._get_stats_args()
 
     def get_user_from_line(self):
@@ -104,8 +104,8 @@ class LadderCommand(BaseCommand, StatsArgsMixin):
     NAME = "ladder"
     HELP = u"""ladder [today|week|month|year|DDMMYYYY]: display the ordered list of the best randers of the given period."""
 
-    def _parse_options(self):
-        super(LadderCommand, self)._parse_options()
+    def parse_options(self):
+        super(LadderCommand, self).parse_options()
         self._get_stats_args()
 
     def get_response(self):
@@ -118,13 +118,13 @@ class MergeCommand(BaseCommand):
     HELP = u"""merge player player1,player2,player3: Allocate the stats of playerX to 'player', only a trusted user can do this."""
     REQUIRE_ADMIN = True
 
-    def _parse_options(self):
+    def parse_options(self):
         try:
             cmd, user1, users = self.ev.arguments[0].split(" ", 2)
             self.dst_user = user1
             self.src_users = users
         except ValueError, e:
-            self.bot.send(ev.target, "Bad arguments: the command should be like !merge Joe Bill, John. Bill and John will disapear in favor of Joe")
+            self.bot.send(self.ev.target, "Bad arguments: the command should be like !merge Joe Bill, John. Bill and John will disapear in favor of Joe")
             return None
         
         return []

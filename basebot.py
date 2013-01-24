@@ -4,7 +4,6 @@ import re
 from threading import Thread
 from Queue import Queue
 import datetime, time
-from logging import handlers
 
 from irc.client import DecodingLineBuffer
 from irc.bot import SingleServerIRCBot
@@ -23,11 +22,14 @@ class BaseCommand(object):
     """
     Abstract class for any command
     commands are specific messages send specifically for the bot to do something
-    on contrary, triggers are messages not aimed at the bot, that it catches.
+    on contrary, triggers are messages not specifically aimed at the bot, that it catches.
 
+    An instance of command is created every time a user issue it.
     """
+    # this is the word used to issue the command
     NAME = u""
 
+    # a list of additional words that can be used to issue the command
     ALIASES = []
 
     # if True, only the user(s) defined in settings.ADMIN can issue this command
@@ -47,19 +49,23 @@ class BaseCommand(object):
     def __init__(self, bot, ev):
         self.bot = bot
         self.ev = ev
-        self._parse_options()
+        self.parse_options()
         #if self.options is None:
         #    pass # TODO : manage bad command lines here ? 
         # like do a Try Catch on a custom exception like BadParameters or BadCommandLine or whatever
 
         self.bot.error_logger.info('Command issued by %s : %s' % (ev.source, self.NAME))
 
-    def _parse_options(self):
+    def parse_options(self):
+        """
+        Override this if you have to check for mandatory arguments and stuff
+        """
         self.options = self.ev.arguments[0].split(" ")[1:]
 
     def get_response(self):
         """
-        most of the time this will be the only method to implement
+        Most of the time this will be the only method to implement
+        It should return a string containing the response of the bot to the issued command
         """
         return u""
     
@@ -141,6 +147,8 @@ class BaseTrigger(object):
     that could make him do something
     """
 
+    # every message catched by the bot is checked against every triggers regexp,
+    # if one match, the corresponding handle method is called.
     REGEXP = r''
 
     def __init__(self, bot, match, ev):
@@ -158,6 +166,9 @@ class BaseTrigger(object):
 
 
 class BaseAuthTrigger(BaseTrigger):
+    """
+    Same as a regular trigger, but check the auth of the message's source
+    """
 
     def get_user_from_line(self):
         """
@@ -217,8 +228,12 @@ class Message():
 
 class BaseIrcBot(SingleServerIRCBot):
     COMMAND_PREFIX = '!'
-    MAX_MSG_LEN = getattr(settings, 'MAX_MSG_LEN', 450) #its 512 but we need some space for the command arguments, might depend on irc server
-    TIME_BETWEEN_MSGS = getattr(settings, 'TIME_BETWEEN_MSGS', 1) #in seconds
+    
+    # its 512 but we need some space for the command arguments, might depend on irc server
+    MAX_MSG_LEN = getattr(settings, 'MAX_MSG_LEN', 450) 
+
+    # The time in seconds that the bot will wait before sending 2 consecutive messages
+    TIME_BETWEEN_MSGS = getattr(settings, 'TIME_BETWEEN_MSGS', 1) 
 
     def __init__(self):
         super(BaseIrcBot, self).__init__([(settings.SERVER,),], settings.NICK, settings.REALNAME)
@@ -236,7 +251,7 @@ class BaseIrcBot(SingleServerIRCBot):
         self.ircobj.add_global_handler("all_events", self.global_handler)
 
     def _load_module(self, module):
-        self.error_logger.info('Loading %s', module)
+        self.error_logger.info('Loading %s.', module)
 
         try:
             mod = __import__('.'.join(module.split('.')[:-1]), globals(), locals(), [module.split('.')[-1]])
@@ -259,6 +274,15 @@ class BaseIrcBot(SingleServerIRCBot):
             trigger_class.module = module_instance
             
         return module_instance
+
+    def _unload_module(self, module):
+        self.error_logger.info('Unloading %s.', module)
+        
+        self.modules.remove(modules)
+        for command_class in module.COMMANDS:
+            for name, command in self.commands.iteritems():
+                if command = command_class:
+                    del self.commands[name]
 
     def _init_modules(self):
         for command_class in self.COMMANDS:

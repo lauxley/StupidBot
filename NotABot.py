@@ -17,7 +17,7 @@ class HelpCommand(BaseCommand):
             except KeyError,e:
                 msg = u"No such command."
         else:
-            msg = u"Here are the currently implemented commands : %s" % ', '.join(['!%s' % k for k in self.bot.commands.keys() if not getattr(self.bot.commands[k], 'is_hidden', False)])
+            msg = u"Here are the currently implemented commands : %s" % ', '.join(['!%s' % k for k in self.bot.commands.keys() if not getattr(self.bot.commands[k], 'HIDDEN', False)])
 
         return msg
 
@@ -39,7 +39,7 @@ class PingCommand(BaseCommand):
         return u'pong'
 
 
-class StupidIrcBot(BaseIrcBot): #CalcBot (desactivated, so many potential problems)
+class StupidIrcBot(BaseIrcBot):
     VERSION = u'0.9.1'
 
     COMMANDS = [HelpCommand, VersionCommand, PingCommand]
