@@ -281,7 +281,7 @@ class BaseIrcBot(SingleServerIRCBot):
         self.modules.remove(modules)
         for command_class in module.COMMANDS:
             for name, command in self.commands.iteritems():
-                if command = command_class:
+                if command == command_class:
                     del self.commands[name]
 
     def _init_modules(self):
