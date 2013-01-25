@@ -1,3 +1,8 @@
+"""
+TODO:
+* rolls by channel !
+"""
+
 import random
 import datetime
 import re

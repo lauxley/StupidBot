@@ -211,8 +211,6 @@ class RssModule(BaseBotModule):
 
     db_file = 'feeds.db'
 
-    feeds = []
-
     FETCH_TIME = getattr(settings, 'FEED_FETCH_TIME', 2) # in minutes
     MAX_ENTRIES = getattr(settings, 'FEED_MAX_ENTRIES', 5) # maximum entries to display when fetching a feed
 
@@ -220,6 +218,9 @@ class RssModule(BaseBotModule):
  
     def __init__(self, bot):
         super(RssModule, self).__init__(bot)
+
+        self.feeds = []
+
         # initialize the loop to fetch the feeds
         if not os.path.isfile(self.db_file):
             self.feed_conn = sqlite3.connect(self.db_file, check_same_thread = False)

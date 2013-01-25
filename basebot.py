@@ -4,6 +4,7 @@ import re
 from threading import Thread
 from Queue import Queue
 import datetime, time
+from logging import handlers
 
 from irc.client import DecodingLineBuffer
 from irc.bot import SingleServerIRCBot
@@ -303,11 +304,14 @@ class BaseIrcBot(SingleServerIRCBot):
 
 
     def _start_msg_consumer(self):
-        t = Thread(target=self.msg_consumer)
+        t = Thread(target=self._msg_consumer)
         t.daemon = True
         t.start()
 
-    def msg_consumer(self):
+    def _msg_consumer(self):
+        # TODO : if we spam a lot of commands, we still get an excess flood :(
+        # we should add a trigger so at least we recover nicely for it.
+
         while True:
             msg = self.msg_queue.get()
 
@@ -322,11 +326,13 @@ class BaseIrcBot(SingleServerIRCBot):
                 ind = msg.text.rfind(" ", 0, self.MAX_MSG_LEN)
                 buff = msg.text[ind:]
                 self.last_sent = datetime.datetime.now()
+                self.msg_logger.info('%s - %s: %s' % (msg.target, settings.NICK, msg.text))
                 self.server.privmsg(msg.target, msg.text[:ind])
                 msg.text = buff
                 time.sleep(self.TIME_BETWEEN_MSGS) # so we don't get disco for excess flood
             
             self.last_sent = datetime.datetime.now()
+            self.msg_logger.info('%s - %s: %s' % (msg.target, settings.NICK, msg.text))
             self.server.privmsg(msg.target, msg.text)
 
     def send(self, target, msg):
@@ -343,19 +349,20 @@ class BaseIrcBot(SingleServerIRCBot):
         msg_formatter = logging.Formatter('%(asctime)s - %(message)s')
         formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
-        if not os.path.isdir(settings.LOG_DIR):
-            os.mkdir(os.path.join(os.path.dirname(__file__),settings.LOG_DIR))
+        logdir = os.path.join(os.path.dirname(__file__), settings.LOG_DIR, str(datetime.datetime.today().year), str(datetime.datetime.today().month))
+        if not os.path.isdir(logdir):
+            os.makedirs(logdir)
 
         msg_logger = logging.getLogger('msgslog')
         msg_logger.setLevel(logging.DEBUG)
-        handler = logging.handlers.TimedRotatingFileHandler(os.path.join(settings.LOG_DIR, 'daily.log'), when='midnight')
+        handler = handlers.TimedRotatingFileHandler(os.path.join(settings.LOG_DIR, str(datetime.datetime.today().year), str(datetime.datetime.today().month), 'daily.log'), when='midnight')
         handler.setFormatter(msg_formatter)
         msg_logger.addHandler(handler)
         self.msg_logger = msg_logger
 
         error_logger = logging.getLogger('errorlog')
         error_logger.setLevel(logging.INFO)
-        handler = logging.FileHandler(os.path.join(settings.LOG_DIR, 'error.log'))
+        handler = handlers.RotatingFileHandler(os.path.join(settings.LOG_DIR, 'error.log'), maxBytes=1024*100) # 100 kB
         handler.setFormatter(formatter)
         error_logger.addHandler(handler)
         self.error_logger = error_logger
@@ -392,7 +399,7 @@ class BaseIrcBot(SingleServerIRCBot):
 
     def log_msg(self, ev):
         if ev.target and ev.source:
-            self.msg_logger.info('%s - %s: %s' % (ev.target, ev.source.nick, ev.arguments[0]))        
+            self.msg_logger.info('%s - %s: %s' % (ev.target, ev.source.nick, ev.arguments[0]))
 
     # we dispatch all the handlers to the modules in case they have something to do
     def _dispatcher(self, serv, ev):
