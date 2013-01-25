@@ -3,7 +3,7 @@ import imp
 import settings
 from basebot import BaseCommand, BaseAuthCommand, BaseTrigger, BaseAuthModule
 
-class Auth():
+class Auth(object):
     def __init__(self, bot, nick):
         self.nick = nick
         self.auth = None
@@ -97,6 +97,7 @@ class UserUnknownTrigger(AuthTrigger):
 
     def handle(self):
         super(UserUnknownTrigger, self).handle()
+        self.auth.set_auth(None) # to call the callbacks
         # self.auth is a ghost Auth instance, created only to reply
         # to the command
         if self.auth.nick in self.bot.auth_module.auths:
