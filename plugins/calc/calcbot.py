@@ -4,7 +4,7 @@ import re
 import string
 import threading
 
-from basebot import BaseBotModule, BaseCommand
+from basebot import BaseBotPlugin, BaseCommand
 import settings
 
 CALC_TIMEOUT = getattr(settings, 'CALC_TIMEOUT', 2) # seconds
@@ -28,6 +28,7 @@ def timeout(func, args=(), kwargs={}, timeout=10, default=None):
     t.join(timeout)
     if t.isAlive():
         # note that the thread is still running :(
+        # todo : switch to subprocess
         raise TimeoutException
     else:
         return t.result
@@ -67,23 +68,25 @@ class CalcCommand(BaseCommand):
     ALIASES = ['c']
     HELP = u"!calc EXPRESSION: a simple calculator."
     
+    def parse_options(self):
+        if not len(self.options):
+            raise BadCommandLineException
+
     def get_response(self):
-        if not self.options:
-            return self.HELP
         try:
             result = safe_calc(self.options[0])
         except TypeError, e:
-            self.module.bot.error_logger.warning(u"Invalid calc %s : %s" % (self.options[0], e))
+            self.plugin.bot.error_logger.warning(u"Invalid calc %s : %s" % (self.options[0], e))
             return u"Sorry, this calculator is stupid, try something more explicit."
         except TimeoutException, e:
-            self.module.bot.error_logger.error(u'timeout trying to calculate : %s.' % self.options[0])
+            self.plugin.bot.error_logger.error(u'timeout trying to calculate : %s.' % self.options[0])
             return 'Sorry, it was taking me too long, i quit.'
         except UnsafeExpressionException,e:
-            self.module.bot.error_logger.warning(u'Unsafe expression %s.' % self.options[0])
+            self.plugin.bot.error_logger.warning(u'Unsafe expression %s.' % self.options[0])
             return u'What are you trying to do exactly ?'
 
         return result
 
 
-class CalcModule(BaseBotModule):
+class CalcPlugin(BaseBotPlugin):
     COMMANDS = [CalcCommand,]

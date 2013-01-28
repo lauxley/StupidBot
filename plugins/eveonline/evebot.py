@@ -3,14 +3,14 @@ import urllib
 from threading import Thread
 from xml.dom.minidom import parseString
 
-from basebot import BaseCommand, BaseBotModule
+from basebot import BaseCommand, BaseBotPlugin
 
 class RegisterOnline(BaseCommand):
     NAME = "everegister"
 
     def get_response(self):
         if self.ev.target.startswith('#'):
-            self.module.registered_chans.add(self.ev.target)
+            self.plugin.registered_chans.add(self.ev.target)
         return u"Done."
 
 
@@ -18,17 +18,17 @@ class IsOnline(BaseCommand):
     NAME = "evestatus"
 
     def get_response(self):
-        return self.module.tell_status()
+        return self.plugin.tell_status()
 
 
-class EveModule(BaseBotModule):
+class EvePlugin(BaseBotPlugin):
     FETCH_TIME = 2
     API_ONLINE_URL = u"https://api.eveonline.com/server/ServerStatus.xml.aspx/"
 
     COMMANDS = [RegisterOnline, IsOnline]
 
     def __init__(self, bot):
-        super(EveModule, self).__init__(bot)
+        super(EvePlugin, self).__init__(bot)
         self.online = None
         self.registered_chans = set()
 
@@ -42,7 +42,7 @@ class EveModule(BaseBotModule):
             status = u"Online"
         else:
             satus = u"Offline"
-        return u"Server status : %s." % status
+        return u"Eve online Server status : %s." % status
 
     def _poll(self):
         # polling

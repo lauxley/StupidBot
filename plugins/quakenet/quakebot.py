@@ -1,7 +1,7 @@
 import imp
 
 import settings
-from basebot import BaseCommand, BaseAuthCommand, BaseTrigger, BaseAuthModule
+from basebot import BaseCommand, BaseAuthCommand, BaseTrigger, BaseAuthPlugin
 
 class Auth():
     def __init__(self, bot, nick):
@@ -59,6 +59,12 @@ class AuthCommand(BaseAuthCommand):
     NAME = "auth"
     HELP = u"auth [user] : tell the auth status of user with Q, also force the check."
 
+    def handle(self):
+        if self.REQUIRE_ADMIN:
+            self.bot.auth_plugin.get_user(self.ev.source.nick, self.check_admin, force_check=True)
+        else:
+            self.bot.auth_plugin.get_user(self.get_user_from_line(), self.process, force_check=True)
+
     def get_response(self):
         if self.user.nick:
             if self.user.auth:
@@ -72,7 +78,7 @@ class AuthCommand(BaseAuthCommand):
 class AuthTrigger(BaseTrigger):
     def handle(self):
         username = self.match.group('username')
-        self.auth = self.bot.auth_module.get_auth(username)
+        self.auth = self.bot.auth_plugin.get_auth(username)
         
 
 class NotAuthedTrigger(AuthTrigger):
@@ -99,19 +105,19 @@ class UserUnknownTrigger(AuthTrigger):
         super(UserUnknownTrigger, self).handle()
         # self.auth is a ghost Auth instance, created only to reply
         # to the command
-        if self.auth.nick in self.bot.auth_module.auths:
-            del self.bot.auth_module.auths[self.auth.nick]
+        if self.auth.nick in self.bot.auth_plugin.auths:
+            del self.bot.auth_plugin.auths[self.auth.nick]
 
 
 class BotNotAuthedTrigger(BaseTrigger):
     REGEXP = r"WHOIS is only available to authed users."
 
     def handle(self):
-        self.bot.auth_module = BaseAuthModule
-        self.bot.error_logger.error(u'The bot is not Authed for some reason ! the Quakenet Auth Module has been desactivated.')
+        self.bot.auth_plugin = BaseAuthPlugin
+        self.bot.error_logger.error(u'The bot is not Authed for some reason ! the Quakenet Auth Plugin has been desactivated.')
 
 
-class QuakeNetModule(BaseAuthModule):
+class QuakeNetPlugin(BaseAuthPlugin):
     """
     channel.userdict doesn't quite have what we need, 
     so we will add another dict to the instance, not channel specific
@@ -121,7 +127,7 @@ class QuakeNetModule(BaseAuthModule):
     }
     """
 
-    # TODO : a trigger to catch a successfull authentification of the bot, or unload the module
+    # TODO : a trigger to catch a successfull authentification of the bot, or unload the plugin
 
     auths = {}
 
@@ -129,7 +135,7 @@ class QuakeNetModule(BaseAuthModule):
     TRIGGERS = [ NotAuthedTrigger, AuthedTrigger, UserUnknownTrigger, BotNotAuthedTrigger ]
     
     def __init__(self, bot):
-        super(QuakeNetModule, self).__init__(bot)
+        super(QuakeNetPlugin, self).__init__(bot)
         self.authentify()
 
     def get_auth(self, user):
@@ -140,14 +146,17 @@ class QuakeNetModule(BaseAuthModule):
             self.auths[user] = auth
         return auth
 
-    def get_user(self, user, cb, *args):
+    def get_user(self, user, cb, *args, **kwargs):
         auth = self.get_auth(user)
+        if 'force_check' in kwargs and kwargs['force_check'] == True and not auth.is_checking:
+            auth.check_authed()
+
         auth.add_callback(cb, args)
-        if not auth.is_checking:
+        if auth._checked and not auth.is_checking:
             auth.process_callbacks()
 
     def get_username(self, user):
-        return user.auth or user.nick
+        return user.get_auth()
 
     def _on_join(self, serv, ev):
         nick = ev.source.nick

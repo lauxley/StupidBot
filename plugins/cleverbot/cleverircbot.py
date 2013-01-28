@@ -2,7 +2,7 @@
 import cleverbot
 import settings
 
-from basebot import BaseBotModule, BaseTrigger
+from basebot import BaseBotPlugin, BaseTrigger
 
 class CleverBotTrigger(BaseTrigger):
     REGEXP = r'(?P<me>%s):?(?P<msg>.*)' % settings.NICK
@@ -11,10 +11,10 @@ class CleverBotTrigger(BaseTrigger):
         # TODO : should be asynchronous
         self.bot.send(self.ev.target, self.bot.brain.Ask(self.match.group('msg').encode('ascii', 'replace')))
 
-class CleverBotModule(BaseBotModule):
+class CleverBotPlugin(BaseBotPlugin):
     COMMANDS = []
     TRIGGERS = [CleverBotTrigger]
 
     def __init__(self, bot):
-        super(CleverBotModule, self).__init__(bot)
+        super(CleverBotPlugin, self).__init__(bot)
         self.bot.brain = cleverbot.Session()

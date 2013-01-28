@@ -19,6 +19,10 @@ class ImproperlyConfigured(Exception):
     pass
 
 
+class BadCommandLineException(Exception):
+    pass
+
+
 class BaseCommand(object):
     """
     Abstract class for any command
@@ -50,10 +54,14 @@ class BaseCommand(object):
     def __init__(self, bot, ev):
         self.bot = bot
         self.ev = ev
-        self.parse_options()
-        #if self.options is None:
-        #    pass # TODO : manage bad command lines here ? 
-        # like do a Try Catch on a custom exception like BadParameters or BadCommandLine or whatever
+        try:
+            self.options = self.ev.arguments[0].split(" ")[1:]
+        except IndexError, e:
+            self.options = []
+        # try:
+        self.parse_options() # the exception will be catched by the main loop
+        # except BadCommandLineException, e:
+
 
         self.bot.error_logger.info('Command issued by %s : %s' % (ev.source, self.NAME))
 
@@ -61,7 +69,7 @@ class BaseCommand(object):
         """
         Override this if you have to check for mandatory arguments and stuff
         """
-        self.options = self.ev.arguments[0].split(" ")[1:]
+        pass
 
     def get_response(self):
         """
@@ -94,14 +102,14 @@ class BaseCommand(object):
         return user in settings.ADMINS
 
     def check_admin(self, user, *args):        
-        if self._is_admin(self.bot.auth_module.get_username(user)):
+        if self._is_admin(self.bot.auth_plugin.get_username(user)):
             self.process(*args)
         else:
             self.bot.send(self.ev.target, self.get_needs_to_be_admin())
         
     def handle(self):
         if self.REQUIRE_ADMIN:
-            self.bot.auth_module.get_user(self.ev.source.nick, self.check_admin)
+            self.bot.auth_plugin.get_user(self.ev.source.nick, self.check_admin)
         else:
             self.process()
 
@@ -109,7 +117,7 @@ class BaseCommand(object):
 class BaseAuthCommand(BaseCommand):
     """
     This is like a regular command but,
-    it checks the auth_module to get the auth of the user issuing the command,
+    it checks the auth_plugin to get the auth of the user issuing the command,
     as this can take some time, the result is asynchronous
     """
         
@@ -126,15 +134,15 @@ class BaseAuthCommand(BaseCommand):
 
     def check_admin(self, user):
         if self._is_admin():
-            self.bot.auth_module.get_user(self.get_user_from_line(), self.process)
+            self.bot.auth_plugin.get_user(self.get_user_from_line(), self.process)
         else:
             self.bot.send(self.ev.target, self.get_needs_to_be_admin())
 
     def handle(self):
         if self.REQUIRE_ADMIN:
-            self.bot.auth_module.get_user(self.ev.source.nick, self.check_admin)
+            self.bot.auth_plugin.get_user(self.ev.source.nick, self.check_admin)
         else:
-            self.bot.auth_module.get_user(self.get_user_from_line(), self.process)
+            self.bot.auth_plugin.get_user(self.get_user_from_line(), self.process)
 
     def process(self, user, *args, **kwargs):
         if user:
@@ -179,15 +187,15 @@ class BaseAuthTrigger(BaseTrigger):
 
     def handle(self):
         # this method is just here to be homogenous with BaseCommand
-        self.bot.auth_module.get_user(self.get_user_from_line(), self.process)
+        self.bot.auth_plugin.get_user(self.get_user_from_line(), self.process)
     
     def process(self, *args):
         pass
     
 
-class BaseBotModule(object):
+class BaseBotPlugin(object):
     """
-    Abstract class for any irc bot module
+    Abstract class for any irc bot plugin
     """
     COMMANDS = {}
     TRIGGERS = []
@@ -196,13 +204,13 @@ class BaseBotModule(object):
         self.bot = bot
 
 
-class BaseAuthModule(BaseBotModule):
+class BaseAuthPlugin(BaseBotPlugin):
     """
     This class is used to get the real user name of a user
-    it can be overrided with settings.AUTH_MODULE, to use any irc auth method
+    it can be overrided with settings.AUTH_PLUGIN, to use any irc auth method
 
-    an auth module is a bit of a specific module,
-    it shouldn't lie in settings.MODULES but in settings.AUTH_MODULE
+    an auth plugin is a bit of a specific plugin,
+    it shouldn't lie in settings.PLUGINS but in settings.AUTH_PLUGIN
     the get_user method could be asynchronous in some case, and so will always return None
     """
     def get_user(self, user, cb, *args, **kwargs):
@@ -245,62 +253,62 @@ class BaseIrcBot(SingleServerIRCBot):
 
         self._init_loggers()
 
-        self.modules = []
+        self.plugins = []
         self.commands = {}
         self.triggers = {}
 
         self.ircobj.add_global_handler("all_events", self.global_handler)
 
-    def _load_module(self, module):
-        self.error_logger.info('Loading %s.', module)
+    def _load_plugin(self, plugin):
+        self.error_logger.info('Loading %s.', plugin)
 
         try:
-            mod = __import__('.'.join(module.split('.')[:-1]), globals(), locals(), [module.split('.')[-1]])
+            mod = __import__(getattr(settings, 'PLUGINS_DIR', '')+'.'+'.'.join(plugin.split('.')[:-1]), globals(), locals(), [plugin.split('.')[-1]])
         except ImportError, e:
-            self.error_logger.error("Can not import Module %s : %s" % (module, e))
+            self.error_logger.error("Can not import Plugin %s : %s" % (plugin, e))
             return 
 
-        module_instance = getattr(mod, module.split('.')[-1])(self)
+        plugin_instance = getattr(mod, plugin.split('.')[-1])(self)
 
-        if not isinstance(module_instance, BaseBotModule):
-            raise ImproperlyConfigured("%s is not a BaseBotModule subclass ! it should be." % module)
+        if not isinstance(plugin_instance, BaseBotPlugin):
+            raise ImproperlyConfigured("%s is not a BaseBotPlugin subclass ! it should be." % plugin)
 
-        for command_class in module_instance.COMMANDS:
+        for command_class in plugin_instance.COMMANDS:
             self.commands.update({command_class.NAME : command_class})
             for alias in command_class.ALIASES:
                 self.commands.update({alias : command_class})
-            command_class.module = module_instance
-        for trigger_class in module_instance.TRIGGERS:
+            command_class.plugin = plugin_instance
+        for trigger_class in plugin_instance.TRIGGERS:
             self.triggers.update({trigger_class.REGEXP : trigger_class})
-            trigger_class.module = module_instance
+            trigger_class.plugin = plugin_instance
             
-        return module_instance
+        return plugin_instance
 
-    def _unload_module(self, module):
-        self.error_logger.info('Unloading %s.', module)
+    def _unload_plugin(self, plugin):
+        self.error_logger.info('Unloading %s.', plugin)
         
-        self.modules.remove(modules)
-        for command_class in module.COMMANDS:
+        self.plugins.remove(plugins)
+        for command_class in plugin.COMMANDS:
             for name, command in self.commands.iteritems():
                 if command == command_class:
                     del self.commands[name]
 
-    def _init_modules(self):
+    def _init_plugins(self):
         for command_class in self.COMMANDS:
             self.commands.update({command_class.NAME : command_class})
             for alias in command_class.ALIASES:
                 self.commands.update({alias : command_class})
-            command_class.module = self
+            command_class.plugin = self
         for trigger_class in self.TRIGGERS:
             self.triggers.update({trigger_class.REGEXP : trigger_class})
-            trigger_class.module = self
+            trigger_class.plugin = self
 
-        auth_module = getattr(settings, 'AUTH_MODULE', 'basebot.BaseAuthModule')
-        self.auth_module = self._load_module(auth_module)
+        auth_plugin = getattr(settings, 'AUTH_PLUGIN', 'basebot.BaseAuthPlugin')
+        self.auth_plugin = self._load_plugin(auth_plugin)
         
-        for module in getattr(settings, 'MODULES', []):
-            self.modules.append(self._load_module(module))
-        self.error_logger.info("Done loading modules.")
+        for plugin in getattr(settings, 'PLUGINS', []):
+            self.plugins.append(self._load_plugin(plugin))
+        self.error_logger.info("Done loading plugins.")
 
 
     def _start_msg_consumer(self):
@@ -372,7 +380,7 @@ class BaseIrcBot(SingleServerIRCBot):
         # changing the default Buffer to ensure no encoding error
         self.connection.buffer = CompliantDecodingLineBuffer()
 
-        self._init_modules()
+        self._init_plugins()
 
         for chan in settings.START_CHANNELS:
             self.connection.join(chan)
@@ -401,13 +409,13 @@ class BaseIrcBot(SingleServerIRCBot):
         if ev.target and ev.source:
             self.msg_logger.info('%s - %s: %s' % (ev.target, ev.source.nick, ev.arguments[0]))
 
-    # we dispatch all the handlers to the modules in case they have something to do
+    # we dispatch all the handlers to the plugins in case they have something to do
     def _dispatcher(self, serv, ev):
         super(BaseIrcBot, self)._dispatcher(serv, ev)
-        for module in self.modules:
+        for plugin in self.plugins:
             m = "on_" + ev.type
-            if hasattr(module, m):
-                getattr(module, m)(serv, ev)
+            if hasattr(plugin, m):
+                getattr(plugin, m)(serv, ev)
 
     def global_handler(self, serv, ev):
         if ev.type in ["pubmsg", "privnotice", "privmsg"]:
@@ -416,14 +424,18 @@ class BaseIrcBot(SingleServerIRCBot):
             msg = ev.arguments[0]
             if msg[0] == self.COMMAND_PREFIX:
                 try:
-                    cmd = msg[1:].split(' ')[0]
-                    self.commands[cmd](self, ev).handle()
+                    cmdcls = self.commands[msg[1:].split(' ')[0]]
+                    try:
+                        cmd = cmdcls(self, ev)
+                    except BadCommandLineException, e:
+                        self.send(ev.target, u"Bad command line - %s" % cmdcls.HELP)
+                    else:
+                        cmd.handle()
                 except KeyError, e:
                     self.error_logger.warning('Invalid command : %s by %s' % (e, ev.source))
                 except NotImplementedError, e:
                     self.send(ev.target, u"Not implemented. Sorry !")
             else:
-                
                 for regexp, trigger_class in self.triggers.items():
                     m = re.match(regexp, msg)
                     if m:

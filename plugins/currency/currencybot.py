@@ -2,7 +2,7 @@ from openexchange.simpleapi import convert, get_currencies
 
 import settings
 
-from basebot import BaseBotModule, BaseCommand, BaseTrigger
+from basebot import BaseBotPlugin, BaseCommand, BaseTrigger, BadCommandLineException
 
 class CurrencyCommand(BaseCommand):
     NAME = "currency"
@@ -10,12 +10,9 @@ class CurrencyCommand(BaseCommand):
     HELP = u"!currency FROMCUR [TOCUR] [AMOUNT] - for a list of all currencies, check !currencies."
     
     default_currency = getattr(settings,'DEFAULT_CURRENCY', 'eur')
-    oops = u'wrong parameters, or service unreachable.'
+    oops = u'Wrong parameters, or service unreachable.'
 
     def parse_options(self):
-        super(CurrencyCommand, self).parse_options()
-        self.cmdline_error = False
-
         if len(self.options) == 3 and self.options[2].isdigit():
             self.from_curr = self.options[0]
             self.to_curr = self.options[1]
@@ -33,15 +30,12 @@ class CurrencyCommand(BaseCommand):
             self.to_curr = self.default_currency
             self.amount = 1
         else:
-            self.cmdline_error = True
+            raise BadCommandLineException
         
 
     def get_response(self):
-        if not self.cmdline_error:
-            c = convert(from_curr=self.from_curr, to_curr=self.to_curr, amount=self.amount)
-            if c is None:
-                return self.oops
-        else:
+        c = convert(from_curr=self.from_curr, to_curr=self.to_curr, amount=self.amount)
+        if c is None:
             return self.oops
         
         return u'%s %s = %s %s' % (self.amount, self.from_curr, c, self.to_curr)
@@ -57,5 +51,5 @@ class CurrenciesCommand(BaseCommand):
             return self.oops
         return ', '.join(curs)
 
-class CurrencyModule(BaseBotModule):
+class CurrencyPlugin(BaseBotPlugin):
     COMMANDS = [ CurrencyCommand, CurrenciesCommand ]

@@ -2,7 +2,7 @@
 from datetime import datetime
 from unidecode import unidecode
 
-from basebot import BaseAuthCommand, BaseBotModule
+from basebot import BaseAuthCommand, BaseBotPlugin
 import settings
 
 from worldweatheronline import get_weather
@@ -21,9 +21,9 @@ class MeteoCommand(BaseAuthCommand):
         return self.ev.source.nick
 
     def get_response(self):
-        user = self.bot.auth_module.get_username(self.user) 
+        user = self.bot.auth_plugin.get_username(self.user) 
         
-        location = self.module.user_location_map.get(user, None) or getattr(settings, 'DEFAULT_LOCATION', 'Paris,france')
+        location = self.plugin.user_location_map.get(user, None) or getattr(settings, 'DEFAULT_LOCATION', 'Paris,france')
         day = 'tomorrow'
         
         for arg in self.options:
@@ -32,13 +32,13 @@ class MeteoCommand(BaseAuthCommand):
             else:
                 location = unidecode(arg)
 
-        self.module.user_location_map[user] = location
+        self.plugin.user_location_map[user] = location
 
         # TODO : this is blocking, is it a good idea ?
         weather, error = get_weather(location, day)
         if not weather:
             if error:
-                self.module.bot.error_logger.error("Cannot fetch the weather : %s" % error)
+                self.plugin.bot.error_logger.error("Cannot fetch the weather : %s" % error)
             return self.oops
 
         if type(weather[2]) == tuple:
@@ -49,11 +49,12 @@ class MeteoCommand(BaseAuthCommand):
 
     
 
-class MeteoModule(BaseBotModule):
+class MeteoPlugin(BaseBotPlugin):
     # TODO: save the default location by user
 
     COMMANDS = [ MeteoCommand ]        
     
-    # used to remember each user choice
-    user_location_map = {}
-    
+    def __init__(self, bot):
+        super(MeteoPlugin, self).__init__(bot)
+        # used to remember each user choice
+        self.user_location_map = {}

@@ -7,7 +7,7 @@ import random
 import datetime
 import re
 
-from basebot import BaseCommand, BaseAuthCommand, BaseAuthTrigger, BaseBotModule, BaseAuthModule
+from basebot import BaseCommand, BaseAuthCommand, BaseAuthTrigger, BaseBotPlugin, BaseAuthPlugin, BadCommandLineException
 
 from db import RandDb
 
@@ -18,7 +18,7 @@ class RandCommand(BaseAuthCommand):
 
     def get_response(self):
         roll = random.randint(1, 100)
-        user = self.bot.auth_module.get_username(self.user)
+        user = self.bot.auth_plugin.get_username(self.user)
         valid = self.bot.rand_db.add_entry(datetime.datetime.now(), user, roll)
         msg = '%s rolled a %s.' % (user, str(roll))
         return msg
@@ -32,12 +32,12 @@ class TrajRandTrigger(BaseAuthTrigger):
             user = self.get_user_from_line()
             if not user: #damn Traj, need a special rule just for him
                 user = 'Traj'
-            self.bot.auth_module.get_user(user, self.process)
+            self.bot.auth_plugin.get_user(user, self.process)
 
     def process(self, user, *args):
         # TODO : check that the self.ev.source is really Traj (authed as such)
         roll = self.match.group('roll')
-        user = self.bot.auth_module.get_username(user)
+        user = self.bot.auth_plugin.get_username(user)
         valid = self.bot.rand_db.add_entry(datetime.datetime.now(), user, roll)
 
 
@@ -79,18 +79,17 @@ class StatsCommand(BaseAuthCommand, StatsArgsMixin):
     HELP = u"""stats [player1] [today|week|month|year|DDMMYYYY]: display the rand stats of a given user, or you if no username is given."""
 
     def parse_options(self):
-        super(StatsCommand, self).parse_options() # hack
         self._get_stats_args()
 
     def get_user_from_line(self):
         return self.opt_user or self.ev.source.nick
 
     def get_stats(self):
-        return self.bot.rand_db.get_stats(self.bot.auth_module.get_username(self.user), self.opt_since, allrolls=False)
+        return self.bot.rand_db.get_stats(self.bot.auth_plugin.get_username(self.user), self.opt_since, allrolls=False)
 
     def get_response(self):
         r = self.get_stats()
-        user = self.bot.auth_module.get_username(self.user)
+        user = self.bot.auth_plugin.get_username(self.user)
         if r and r['count']:
             return  u'%s rolled %s times, and got %s on average. min: %s, max: %s. pos: %s' % (user, r['count'], round(r['avg'], 3), r['min'], r['max'], r['pos'])
         else:
@@ -102,7 +101,7 @@ class AllStatsCommand(StatsCommand):
     HELP = u"""allstats [player1] [today|week|month|year|DDMMYYYY]: display the whole rand stats of a given user including invalid rands."""
 
     def get_stats(self):
-        return self.bot.rand_db.get_stats(self.bot.auth_module.get_username(self.user), self.opt_since, allrolls=True)
+        return self.bot.rand_db.get_stats(self.bot.auth_plugin.get_username(self.user), self.opt_since, allrolls=True)
 
 
 class LadderCommand(BaseCommand, StatsArgsMixin):
@@ -110,7 +109,6 @@ class LadderCommand(BaseCommand, StatsArgsMixin):
     HELP = u"""ladder [today|week|month|year|DDMMYYYY]: display the ordered list of the best randers of the given period."""
 
     def parse_options(self):
-        super(LadderCommand, self).parse_options()
         self._get_stats_args()
 
     def get_response(self):
@@ -129,8 +127,7 @@ class MergeCommand(BaseCommand):
             self.dst_user = user1
             self.src_users = users
         except ValueError, e:
-            self.bot.send(self.ev.target, "Bad arguments: the command should be like !merge Joe Bill, John. Bill and John will disapear in favor of Joe")
-            return None
+            raise BadCommandLineException
         
         return []
 
@@ -166,10 +163,10 @@ class BackupCommand(BaseCommand):
         self.bot.send(self.get_target(), u"Done.")
 
 
-class RandModule(BaseBotModule):
+class RandPlugin(BaseBotPlugin):
     COMMANDS = [ RandCommand, StatsCommand, AllStatsCommand, LadderCommand, MergeCommand, UsersListCommand, BackupCommand ]
     TRIGGERS = [TrajRandTrigger,]
 
     def __init__(self, bot):
-        super(RandModule, self).__init__(bot)
+        super(RandPlugin, self).__init__(bot)
         self.bot.rand_db = RandDb()

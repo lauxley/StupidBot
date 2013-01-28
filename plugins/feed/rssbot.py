@@ -8,7 +8,7 @@ import feedparser
 
 import settings
 
-from basebot import BaseBotModule, BaseCommand
+from basebot import BaseBotPlugin, BaseCommand, BadCommandLineException
 
 def dt_to_sql(dt):
     if type(dt) == datetime.datetime:
@@ -22,14 +22,17 @@ def from_sql_dt(dt):
 
 
 class RssFeed(object):
-    def __init__(self, module, row):
-        self.module = module
+    def __init__(self, plugin, row):
+        self.plugin = plugin
         self.id = row[0]
         self.url = row[1]
         self.updated = from_sql_dt(row[2])
         self.last_entry = row[3]
-        self.channels = row[4].split(',')
+
+        self.channel = row[4]
         self.title = row[5]
+        self.filter = row[6]
+        self.exclude = row[7]
 
         self.entries = []
 
@@ -40,7 +43,7 @@ class RssFeed(object):
         try:
             return u'%s : %s - %s' % (self.title, self.entries[entryn].title, self.entries[entryn].link)
         except (IndexError, AttributeError), e:
-            self.module.bot.error_logger.error("Bad parameter to RssFeed.tell : %s" % e)
+            self.plugin.bot.error_logger.error("Bad parameter to RssFeed.tell : %s" % e)
             return u'Bad parameters.'
 
     def tell_more(self, entryn=0):
@@ -48,19 +51,18 @@ class RssFeed(object):
             entry = self.entries[entryn]
             return [entry.title, entry.summary, entry.link]
         except (IndexError, AttributeError), e:
-            self.module.bot.error_logger.error("Bad parameter to RssFeed.tell : %s" % e)
+            self.plugin.bot.error_logger.error("Bad parameter to RssFeed.tell : %s" % e)
             return u'Bad parameters.'
 
-    def update(self, conn):
-        cur = conn.cursor()
-        sql = "UPDATE feeds SET last_entry=?, last_updated=? WHERE ROWID=?;"
-        cur.execute(sql, [self.last_entry, dt_to_sql(self.updated), self.id])
-        conn.commit()
+    def update(self):
+        cur = self.plugin.feed_conn.cursor()
+        sql = "UPDATE feeds SET last_entry=?, last_updated=?, filter=?, exclude=? WHERE ROWID=?;"
+        cur.execute(sql, [self.last_entry, dt_to_sql(self.updated), self.filter, self.exclude, self.id])
+        self.plugin.feed_conn.commit()
 
-    def fetch(self, conn):
+    def fetch(self):
         # TODO : catch if feed changed and became invalid all of a sudden
         # or if an entry has been deleted !
-        #self.module.bot.error_logger.info("Fetching %s." % self.title)
         data = feedparser.parse(self.url)
 
         del self.entries
@@ -70,7 +72,7 @@ class RssFeed(object):
         try:
             upd = getattr(data,'updated',None) or getattr(data, 'published', None) or data['entries'][0]['published']
         except (IndexError, KeyError), e:
-            self.module.bot.error_logger.error("Something went wrong trying to update the Rss Feed %s : %s" % (self.title, e))
+            self.plugin.bot.error_logger.error("Something went wrong trying to update the Rss Feed %s : %s" % (self.title, e))
         else:
             # because of http://bugs.python.org/issue6641
             # im not using the utc information
@@ -81,34 +83,17 @@ class RssFeed(object):
                     if self.last_entry == entry['id']:
                         break
                     else:
-                        new_data.append(entry)
+                        # TODO : log
+                        if not self.filter or (self.filter and re.findall(entry.filter, entry.title)):
+                            if not self.exclude or (self.exclude and not re.findall(entry.exclude, entry.title)):
+                                new_data.append(entry)
 
                 if data['entries']:
                     self.last_entry = data['entries'][0].id
                     self.updated = updated
-                    self.update(conn)
+                    self.update()
 
         return new_data
-
-    def _update_sql_chans(self):
-        sql = "UPDATE feeds SET channels=? WHERE ROWID=?;"
-        cur = self.module.feed_conn.cursor()
-        cur.execute(sql, [','.join(self.channels), self.id])
-        self.module.feed_conn.commit()
-
-    def add_chan(self, chan):
-        self.channels.append(chan)
-        self._update_sql_chans()
-
-    def del_chan(self, chan):
-        self.channels.remove(chan)
-        if len(self.channels):
-            self._update_sql_chans()
-        else:
-            sql = "DELETE FROM feeds WHERE ROWID=?;"
-            cur = self.module.feed_conn.cursor()
-            cur.execute(sql, [self.id,])
-            self.module.feed_conn.commit()
         
 
 class AddFeedCommand(BaseCommand):
@@ -116,24 +101,20 @@ class AddFeedCommand(BaseCommand):
     HELP = u"addfeed FEED_TITLE FEED_URL - add the given rss feed to the list."
     REQUIRE_ADMIN = True
 
-    def get_response(self):
-        # check parameters
+    def parse_options(self):
         if len(self.options) != 2:
-            return u"Please give me one title and a valid url."
-        feed_title = self.options[0]
-        feed_url = self.options[1]
-        
+            raise BadCommandLineException
+        self.feed_title = self.options[0]
+        self.feed_url = self.options[1]
+
+    def get_response(self):
         # check if the feed already exists, create it if not
-        feed, created = self.module._get_feed(feed_url, feed_title, self.ev.target)
-        # check the channel is not already in the list
+        feed, created = self.plugin._get_or_create_feed(self.feed_url, self.feed_title, self.ev.target)
         if feed:
             if created:
                 return u'Feed added to this channel.'
-            elif self.ev.target in feed.channels:
-                return u"Already added in this channel."
             else:
-                feed.add_chan(self.ev.target)
-                return u'Feed added to this channel.'
+                return u"Already added in this channel."
         else:
             return u"Invalid RSS feed."
 
@@ -143,8 +124,8 @@ class FeedListCommand(BaseCommand):
     HELP = u"feedlist - print the list of fetched rss feeds for this channel."
 
     def get_response(self):
-        if self.module.feeds:
-            return ' - '.join(['%s:%s' % (f.title, f.url) for f in self.module.feeds if (self.ev.target in f.channels)])
+        if self.plugin.feeds:
+            return ' - '.join(['%s:%s' % (f.title, f.url) for f in self.plugin.feeds if (self.ev.target == f.channel)])
         else:
             return u'No rss feed added yet.'
 
@@ -155,56 +136,99 @@ class FeedRemoveCommand(BaseCommand):
     ALIASES = ["feeddel",]
     REQUIRE_ADMIN = True
 
+    def parse_options(self):
+        if len(self.options) != 1:
+            raise BadCommandLineException
+
     def get_response(self):
         chan = self.ev.target
-        for feed in self.module.feeds:
-            if feed.title == self.options[0] or feed.url == self.options[0]:
-                feed.del_chan(chan)
-                title = feed.title
-                if len(feed.channels) == 0:
-                    self.module.feeds.remove(feed)
+        for feed in self.plugin.feeds:
+            if feed.title == self.options[0] and feed.channel == chan:
+                self.plugin.feeds.remove(feed)
                 return "Done. %s won't bother you anymore." % title
         return "Couldn't delete feed %s." % self.options[0]
+
+
+class FeedAddFilter(BaseCommand):
+    """
+    Add a filter to a specific feed on a specific channel, 
+    only 
+    """
+    NAME = u"feedfilter"
+    REQUIRE_ADMIN = True
+    HELP = u"feedfilter FEED_TITLE PATTERN - when fetching new entries from FEED_TITLE, the bot will only display the entries matching PATTERN."
+
+    # custom
+    RESPONSE = u"Filter applied for feed %s."
+
+    def parse_options(self):
+        if len(self.options) < 2:
+            raise BadCommandLineException
+
+    def apply_filter(self, feed):
+        feed.filter = self.options[1]
+        feed.update()
+
+    def get_response(self):
+        for feed in self.plugin.feeds:
+            if feed.title == self.options[0] and feed.channel == self.ev.target:
+                self.apply_filter(feed)
+                return self.RESPONSE % feed.title
+
+
+class FeedAddExclude(FeedAddFilter):
+    NAME = u"feedexclude"
+    REQUIRE_ADMIN = True
+    HELP = u"feedexclude FEED_TITLE PATTERN - when fetching new entries from FEED_TITLE, the bot will NOT display the entries matching PATTERN."
+
+    RESPONSE = "Exclusion applied for feed %s."
+
+    def apply_filter(self, feed):
+        feed.exclude = self.options[1]
+        feed.update()
+        
 
 class FeedCommand(BaseCommand):
     """
     TODO: 
     * log old entries
     * & pass a date to !feed 
-    * search interface (for example title=foobar)
+    * search interface (for example title=foobar) with grep ?!
     * strip the html code or even better find the attribute without html code
     """
 
     NAME = "feed"
-    HELP = u"!feed [FEED_TITLE [#ENTRY_NUMBER]] - sends you a private message with the content of the given entry, or the last fetched entry if none."
+    HELP = u"feed [FEED_TITLE [ENTRY_NUMBER|list]] - sends you a private message with the content of the given entry."
     TARGET = "source"
     
     def get_last_feed(self):
-        most_recent = self.module.feeds[0]
-        for feed in self.module.feeds:
+        most_recent = self.plugin.feeds[0]
+        for feed in self.plugin.feeds:
             if feed.updated > most_recent.updated:
                 most_recent = feed
         return most_recent
 
-
-    def get_response(self):
-        if not self.module.feeds:
-            return u'No rss feed added yet.'
-
-        entryn = 0
-        feed = self.get_last_feed()
+    def parse_options(self):
+        self.entryn = 0
+        self.feed = None
         for arg in self.options:
             if arg.isdigit():
-                entryn = int(arg)
-            for f in self.module.feeds:
+                self.entryn = int(arg)
+            for f in self.plugin.feeds:
                 if f.title == arg:
-                    feed = f
+                    self.feed = f
                     break
+        if not self.feed:
+            self.feed = self.get_last_feed()
 
-        return feed.tell_more(entryn=entryn)
+    def get_response(self):
+        if not self.plugin.feeds:
+            return u'No rss feed added yet.'
+        
+        return self.feed.tell_more(entryn=self.entryn)
 
 
-class RssModule(BaseBotModule):
+class RssPlugin(BaseBotPlugin):
     """
     TODO: cleanup (especially the db part)
     """
@@ -214,10 +238,10 @@ class RssModule(BaseBotModule):
     FETCH_TIME = getattr(settings, 'FEED_FETCH_TIME', 2) # in minutes
     MAX_ENTRIES = getattr(settings, 'FEED_MAX_ENTRIES', 5) # maximum entries to display when fetching a feed
 
-    COMMANDS = [ AddFeedCommand, FeedListCommand, FeedRemoveCommand, FeedCommand ]
+    COMMANDS = [ AddFeedCommand, FeedListCommand, FeedRemoveCommand, FeedCommand, FeedAddFilter, FeedAddExclude ]
  
     def __init__(self, bot):
-        super(RssModule, self).__init__(bot)
+        super(RssPlugin, self).__init__(bot)
 
         self.feeds = []
 
@@ -228,7 +252,7 @@ class RssModule(BaseBotModule):
             return
         self.feed_conn = sqlite3.connect(self.db_file, check_same_thread = False)
 
-        sql = "SELECT ROWID, url, last_updated, last_entry, channels, title FROM feeds"
+        sql = "SELECT ROWID, url, last_updated, last_entry, channel, title, filter, exclude FROM feeds"
         cur = self.feed_conn.cursor()
         for row in cur.execute(sql):
             self.feeds.append(RssFeed(self, row))
@@ -245,8 +269,10 @@ class RssModule(BaseBotModule):
                             url VARCHAR(255) NOT NULL,
                             last_entry VARCHAR(64),
                             last_updated DATETIME,
-                            channels VARCHAR(255),
-                            title VARCHAR(64)
+                            channel VARCHAR(64) NOT NULL,
+                            title VARCHAR(64),
+                            filter VARCHAR(64),
+                            exclude VARCHAR(64)
                 );"""
 
         cur = self.feed_conn.cursor()
@@ -254,10 +280,10 @@ class RssModule(BaseBotModule):
         self.feed_conn.commit()
         cur.close()
 
-    def _get_feed(self, feed_url, feed_title, chan):
+    def _get_or_create_feed(self, feed_url, feed_title, chan):
         created = False
         for feed in self.feeds:
-            if feed.url == feed_url:
+            if feed.url == feed_url and feed.channel == chan:
                 return feed, created
  
         try:
@@ -279,12 +305,12 @@ class RssModule(BaseBotModule):
         return feed, created
 
     def _create_feed(self, feed_url, feed_title, last_entry, last_updated, chan):
-        sql = "INSERT INTO feeds (url, last_entry, last_updated, channels, title) VALUES (?,?,?,?,?)"
+        sql = "INSERT INTO feeds (url, last_entry, last_updated, channel, title) VALUES (?,?,?,?,?)"
         cur = self.feed_conn.cursor()
         cur.execute(sql, [feed_url, last_entry, last_updated, chan, feed_title])
         self.feed_conn.commit()
 
-        sql = "SELECT ROWID, url, last_updated, last_entry, channels, title FROM feeds WHERE url=?"
+        sql = "SELECT ROWID, url, last_updated, last_entry, channel, title, filter, exclude FROM feeds WHERE url=?"
         cur.execute(sql, [feed_url,])
         return cur.fetchone()
 
@@ -292,10 +318,11 @@ class RssModule(BaseBotModule):
         # polling
         while(True):
             for feed in self.feeds:
-                new_data = feed.fetch(self.feed_conn)
+                # TODO : this is sub-obtimal, 
+                # if we have the same feed in different channels, it will be fetched as many times
+                new_data = feed.fetch() 
                 for n, entry in enumerate(new_data[:self.MAX_ENTRIES]):
-                    for chan in feed.channels:
-                        self.bot.send(chan, feed.tell(entryn=n))
+                    self.bot.send(feed.channel, feed.tell(entryn=n))
 
             time.sleep(self.FETCH_TIME*60)
 
