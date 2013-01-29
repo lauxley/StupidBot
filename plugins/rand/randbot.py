@@ -118,7 +118,7 @@ class LadderCommand(BaseCommand, StatsArgsMixin):
 
 class MergeCommand(BaseCommand):
     NAME = "merge"
-    HELP = u"""merge player player1,player2,player3: Allocate the stats of playerX to 'player', only a trusted user can do this."""
+    HELP = u"""merge player player1,player2,player3: Allocate the stats of playerX to player."""
     REQUIRE_ADMIN = True
 
     def parse_options(self):

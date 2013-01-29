@@ -50,8 +50,6 @@ class MeteoCommand(BaseAuthCommand):
     
 
 class MeteoPlugin(BaseBotPlugin):
-    # TODO: save the default location by user
-
     COMMANDS = [ MeteoCommand ]        
     
     def __init__(self, bot):

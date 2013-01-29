@@ -37,10 +37,7 @@ class RandDb(object):
         shutil.copy(self.db_file, os.path.join(bck_dir, '%s.%s' % (self.db_file, d)))
 
     def insert(self, table, values):
-        # assert table exists
-        # assert values is a list
         cur = self.conn.cursor()
-        # todo: except sql injection attempt
         if table == 'rolls':
             cols = '`user`, `roll_on`, `value`, `valid`'
         else:
@@ -50,9 +47,6 @@ class RandDb(object):
         self.conn.commit()
 
     def make(self):
-        # TODO: make a decorator to wrap sql methods and call this
-        # if we catch a sqlite3.OperationalError
-
         sql = """CREATE TABLE rolls (pk INT AUTO_INCREMENT PRIMARY KEY,
                             user VARCHAR(50) NOT NULL,
                             roll_on DATETIME NOT NULL,
@@ -102,17 +96,16 @@ class RandDb(object):
 
 
     def get_stats(self, user, dt, allrolls=False):
-        # TODO : fix pos
         cur = self.conn.cursor()
         if not dt:
             dt = datetime.datetime(2000, 1, 1) # ugly
-        sql = "SELECT AVG(value) as a, COUNT(*) as c, MIN(value) as min, MAX(value) as max FROM rolls WHERE valid>=? AND roll_on >= ? GROUP BY user HAVING user = ?"
+        sql = "SELECT AVG(value) as a, COUNT(*) as c, MIN(value) as min, MAX(value) as max FROM rolls WHERE valid>=? AND roll_on >= ? GROUP BY user HAVING user = ?;"
         cur.execute(sql, [int(not allrolls), self.sql_dt(dt), user])
         r = cur.fetchone()
         
         # we need another query to get the pos because sqlite sux
         if r:
-            sql = "SELECT COUNT(*) FROM (SELECT AVG(value) as a FROM rolls WHERE valid=? AND roll_on>=? GROUP BY user HAVING a <= ?)"
+            sql = "SELECT COUNT(*) FROM (SELECT AVG(value) as a FROM rolls WHERE valid>=? AND roll_on>=? GROUP BY user HAVING a <= ?);"
             cur.execute(sql, [int(not allrolls), self.sql_dt(dt), int(r[0])])
             p = cur.fetchone()
             

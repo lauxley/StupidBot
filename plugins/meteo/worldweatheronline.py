@@ -70,8 +70,6 @@ def get_weather(location, qdate='tomorow'):
             else: # tomorrow by default
                 root = jd['weather'][1]
                 day = date.today() + timedelta(days=1)
-
-            # TODO: manage up to 5 days ahead
                 
             weather = root['weatherDesc'][0]['value']
             precip = root['precipMM']

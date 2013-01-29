@@ -244,12 +244,22 @@ class BaseIrcBot(SingleServerIRCBot):
     # The time in seconds that the bot will wait before sending 2 consecutive messages
     TIME_BETWEEN_MSGS = getattr(settings, 'TIME_BETWEEN_MSGS', 1) 
 
+    # because there is no way to know how the server implement the flood protection
+    # and thus we can't make a more reliable rule to avoid it
+    # the number of commands before we stop answering (if set to 2, the 3rd command will remain unanswered)
+    FLOOD_PROTECTION_MAX_COMMANDS = getattr(settings, 'FLOOD_PROTECTION_MAX_COMMANDS', 2)
+    # the number of seconds before we reset the command timer
+    FLOOD_PROTECTION_TIMER = getattr(settings, 'FLOOD_PROTECTION_TIMER', 2)
+
     def __init__(self):
         super(BaseIrcBot, self).__init__([(settings.SERVER,),], settings.NICK, settings.REALNAME)
 
-        self.last_sent = None
+        self.last_sent = datetime.datetime.now()
         self.msg_queue = Queue() # message queue
         self._start_msg_consumer()
+
+        # the map to remember the last user's command time
+        self.command_timer_map = {}
 
         self._init_loggers()
 
@@ -316,32 +326,55 @@ class BaseIrcBot(SingleServerIRCBot):
         t.daemon = True
         t.start()
 
-    def _msg_consumer(self):
-        # TODO : if we spam a lot of commands, we still get an excess flood :(
-        # we should add a trigger so at least we recover nicely for it.
+    ########## PARALLEL IMPLEMENTATION - TESTING ANTI FLOOD METHODS ##########
+    # the issue here is double:
+    # firstly, the rfc only gives advices about how to deal with flood, so servers are free to have their own
+    # implementations of flood protections
+    # secondly, there is no way to tell at what speed the server really process data, or the state of the server's socket buffer
+    # and thus if the command will overflow
+    # (overflow = the read buffer is already full and we try to send more data)
 
+    def _check_flood_danger(self):
+        """
+        very basic implementation
+        """
+        return (datetime.datetime.now()- self.last_sent).seconds < self.TIME_BETWEEN_MSGS
+
+    def _check_flood_danger2(self):
+        """
+        We try to make a wild guess on the server process time
+        so we can chain a lot of small commands, but larger responses trigger the timer
+        """
+        pass
+
+    #########################################################################
+
+    def _send(self, msg):
+        self.last_sent = datetime.datetime.now()
+        self.msg_logger.info('%s - %s: %s' % (msg.target, settings.NICK, msg.text))
+        self.server.privmsg(msg.target, msg.text)
+
+    def _msg_consumer(self):
+        """
+        Called from a specific Thread because it is blocking
+        """
         while True:
             msg = self.msg_queue.get()
-
-            if not self.last_sent:
-                self.last_sent = datetime.datetime.now()
             
-            if (datetime.datetime.now()- self.last_sent).seconds < self.TIME_BETWEEN_MSGS:
+            if self._check_flood_danger():
                 time.sleep(self.TIME_BETWEEN_MSGS)
-
+            
             while len(msg.text) > self.MAX_MSG_LEN:
-                # TODO : break if there is no space in the msg
                 ind = msg.text.rfind(" ", 0, self.MAX_MSG_LEN)
+                if ind == -1:
+                    ind = self.MAX_MSG_LEN
                 buff = msg.text[ind:]
-                self.last_sent = datetime.datetime.now()
-                self.msg_logger.info('%s - %s: %s' % (msg.target, settings.NICK, msg.text))
-                self.server.privmsg(msg.target, msg.text[:ind])
+                msg.text = msg.text[:ind]
+                self._send(msg)
                 msg.text = buff
                 time.sleep(self.TIME_BETWEEN_MSGS) # so we don't get disco for excess flood
             
-            self.last_sent = datetime.datetime.now()
-            self.msg_logger.info('%s - %s: %s' % (msg.target, settings.NICK, msg.text))
-            self.server.privmsg(msg.target, msg.text)
+            self._send(msg)
 
     def send(self, target, msg):
         if type(msg) in [list, set]:
@@ -417,6 +450,32 @@ class BaseIrcBot(SingleServerIRCBot):
             if hasattr(plugin, m):
                 getattr(plugin, m)(serv, ev)
 
+    def check_command_timer(self, user):
+        """
+        ensure that an user is not tring to excess flood the bot.
+        we don't use the auth_plugin here, no need
+        
+        for now, we consider that the user tries to flood the bot if he issue more than 2 commands
+        in less than 2 seconds
+
+        note that it doesn't protect against the flood, it only make sure that one user only can not
+        make the bot be kicked for excess flood.
+        """
+        now = datetime.datetime.now()
+        if user not in self.command_timer_map:
+            self.command_timer_map[user] = { 'counter':0, 'time':now }
+        ctm = self.command_timer_map[user]
+
+        if (now - ctm['time']).seconds <= self.FLOOD_PROTECTION_TIMER:
+            ctm['counter'] = ctm['counter'] + 1
+            if ctm['counter'] > self.FLOOD_PROTECTION_MAX_COMMANDS:
+                return False
+        else:
+            # the last command was a long time ago : reset
+            ctm = { 'counter':1, 'time':now }
+
+        return True
+
     def global_handler(self, serv, ev):
         if ev.type in ["pubmsg", "privnotice", "privmsg"]:
             self.log_msg(ev)
@@ -428,9 +487,12 @@ class BaseIrcBot(SingleServerIRCBot):
                     try:
                         cmd = cmdcls(self, ev)
                     except BadCommandLineException, e:
-                        self.send(ev.target, u"Bad command line - %s" % cmdcls.HELP)
+                        self.send(ev.target, u"Bad command line - %s" % e.message or cmdcls.HELP)
                     else:
-                        cmd.handle()
+                        if self.check_command_timer(ev.source.nick):
+                            cmd.handle()
+                        else:
+                            self.error_logger.warning('Flood attempt by %s.' % ev.source)
                 except KeyError, e:
                     self.error_logger.warning('Invalid command : %s by %s' % (e, ev.source))
                 except NotImplementedError, e:

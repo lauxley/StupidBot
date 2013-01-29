@@ -1,3 +1,4 @@
+import re
 import os.path
 import sqlite3
 import urlparse
@@ -39,16 +40,16 @@ class RssFeed(object):
     def __unicode__(self):
         return unicode(self.title)
 
-    def tell(self, entryn=0):
+    def tell(self, entry):
         try:
-            return u'%s : %s - %s' % (self.title, self.entries[entryn].title, self.entries[entryn].link)
+            return u'%s : %s - %s' % (self.title, entry.title, entry.link)
         except (IndexError, AttributeError), e:
             self.plugin.bot.error_logger.error("Bad parameter to RssFeed.tell : %s" % e)
             return u'Bad parameters.'
 
-    def tell_more(self, entryn=0):
+    def tell_more(self, entry):
         try:
-            entry = self.entries[entryn]
+            # TODO : strip html
             return [entry.title, entry.summary, entry.link]
         except (IndexError, AttributeError), e:
             self.plugin.bot.error_logger.error("Bad parameter to RssFeed.tell : %s" % e)
@@ -83,9 +84,8 @@ class RssFeed(object):
                     if self.last_entry == entry['id']:
                         break
                     else:
-                        # TODO : log
-                        if not self.filter or (self.filter and re.findall(entry.filter, entry.title)):
-                            if not self.exclude or (self.exclude and not re.findall(entry.exclude, entry.title)):
+                        if not self.filter or (self.filter and re.findall(self.filter, entry.title, flags=re.IGNORECASE)):
+                            if not self.exclude or (self.exclude and not re.findall(self.exclude, entry.title, flags=re.IGNORECASE)):
                                 new_data.append(entry)
 
                 if data['entries']:
@@ -220,12 +220,14 @@ class FeedCommand(BaseCommand):
                     break
         if not self.feed:
             self.feed = self.get_last_feed()
+        if self.entryn >= len(self.feed.entries):
+            raise BadCommandLineException("There is only %d entries available." % len(self.feed.entries))
 
     def get_response(self):
         if not self.plugin.feeds:
             return u'No rss feed added yet.'
         
-        return self.feed.tell_more(entryn=self.entryn)
+        return self.feed.tell_more(self.feed.entries[self.entryn])
 
 
 class RssPlugin(BaseBotPlugin):
@@ -236,7 +238,7 @@ class RssPlugin(BaseBotPlugin):
     db_file = 'feeds.db'
 
     FETCH_TIME = getattr(settings, 'FEED_FETCH_TIME', 2) # in minutes
-    MAX_ENTRIES = getattr(settings, 'FEED_MAX_ENTRIES', 5) # maximum entries to display when fetching a feed
+    MAX_ENTRIES = getattr(settings, 'FEED_MAX_ENTRIES', 2) # maximum entries to display when fetching a feed
 
     COMMANDS = [ AddFeedCommand, FeedListCommand, FeedRemoveCommand, FeedCommand, FeedAddFilter, FeedAddExclude ]
  
@@ -321,8 +323,11 @@ class RssPlugin(BaseBotPlugin):
                 # TODO : this is sub-obtimal, 
                 # if we have the same feed in different channels, it will be fetched as many times
                 new_data = feed.fetch() 
-                for n, entry in enumerate(new_data[:self.MAX_ENTRIES]):
-                    self.bot.send(feed.channel, feed.tell(entryn=n))
+                if len(new_data) > self.MAX_ENTRIES:
+                    self.bot.send(feed.channel, u"%d new entries for %s ! access them with !feed %s X" % (len(new_data), feed.title, feed.title))
+                else:
+                    for n, entry in enumerate(new_data[:self.MAX_ENTRIES]):
+                        self.bot.send(feed.channel, feed.tell(entry))
 
             time.sleep(self.FETCH_TIME*60)
 
