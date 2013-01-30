@@ -7,7 +7,8 @@ import random
 import datetime
 import re
 
-from basebot import BaseCommand, BaseAuthCommand, BaseAuthTrigger, BaseBotPlugin, BaseAuthPlugin, BadCommandLineException
+from basebot import BaseCommand, BaseBotPlugin, BadCommandLineException
+from auth import BaseAuthCommand, BaseAuthTrigger
 
 from db import RandDb
 
@@ -15,6 +16,10 @@ class RandCommand(BaseAuthCommand):
     NAME = "rand"
     HELP = u"""rand: Roll a number between 1 and 100, only one rand per day is taken into account in stats."""
     ALIASES = ['r',]
+
+    def parse_options(self):
+        if len(self.options):
+            raise BadCommandLineException
 
     def get_response(self):
         roll = random.randint(1, 100)
@@ -25,6 +30,8 @@ class RandCommand(BaseAuthCommand):
 
 
 class TrajRandTrigger(BaseAuthTrigger):
+    # TODO : move this to NotABot.py as it is very specific
+
     REGEXP = r'(?P<username>[^ ]+)? ?obtient un (?P<roll>\d{1,3}) \(1-100\)'
 
     def handle(self):

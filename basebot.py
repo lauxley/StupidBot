@@ -55,7 +55,7 @@ class BaseCommand(object):
         self.bot = bot
         self.ev = ev
         try:
-            self.options = self.ev.arguments[0].split(" ")[1:]
+            self.options = self.ev.arguments[0].strip().split(" ")[1:]
         except IndexError, e:
             self.options = []
         # try:
@@ -114,41 +114,6 @@ class BaseCommand(object):
             self.process()
 
 
-class BaseAuthCommand(BaseCommand):
-    """
-    This is like a regular command but,
-    it checks the auth_plugin to get the auth of the user issuing the command,
-    as this can take some time, the result is asynchronous
-    """
-        
-    def get_user_from_line(self):
-        """
-        override this if the default behavior is not what you want
-        by default if there is at least an option,
-        we check the auth from the first option, if not
-        from the user who issued the command
-        """
-        if self.options:
-            return self.options[0]
-        return self.ev.source.nick
-
-    def check_admin(self, user):
-        if self._is_admin():
-            self.bot.auth_plugin.get_user(self.get_user_from_line(), self.process)
-        else:
-            self.bot.send(self.ev.target, self.get_needs_to_be_admin())
-
-    def handle(self):
-        if self.REQUIRE_ADMIN:
-            self.bot.auth_plugin.get_user(self.ev.source.nick, self.check_admin)
-        else:
-            self.bot.auth_plugin.get_user(self.get_user_from_line(), self.process)
-
-    def process(self, user, *args, **kwargs):
-        if user:
-            self.user = user
-        super(BaseAuthCommand, self).process()
-
 
 class BaseTrigger(object):
     """
@@ -173,26 +138,6 @@ class BaseTrigger(object):
     def process(self):
         pass
 
-
-class BaseAuthTrigger(BaseTrigger):
-    """
-    Same as a regular trigger, but check the auth of the message's source
-    """
-
-    def get_user_from_line(self):
-        """
-        override this if the default behavior is not what you want
-        """
-        return self.match.group('username')
-
-    def handle(self):
-        # this method is just here to be homogenous with BaseCommand
-        self.bot.auth_plugin.get_user(self.get_user_from_line(), self.process)
-    
-    def process(self, *args):
-        pass
-    
-
 class BaseBotPlugin(object):
     """
     Abstract class for any irc bot plugin
@@ -202,28 +147,6 @@ class BaseBotPlugin(object):
 
     def __init__(self, bot):
         self.bot = bot
-
-
-class BaseAuthPlugin(BaseBotPlugin):
-    """
-    This class is used to get the real user name of a user
-    it can be overrided with settings.AUTH_PLUGIN, to use any irc auth method
-
-    an auth plugin is a bit of a specific plugin,
-    it shouldn't lie in settings.PLUGINS but in settings.AUTH_PLUGIN
-    the get_user method could be asynchronous in some case, and so will always return None
-    """
-    def get_user(self, user, cb, *args, **kwargs):
-        """
-        This method will be called anytime we need to get a real user from a user name
-        it is asynchronous, and will call command.process() passing user as an argument
-        once it knows his real name
-        """
-        cb(user=user, *args, **kwargs)
-        return None
-
-    def get_username(self, user):
-        return user
 
 
 class Message():
@@ -254,7 +177,10 @@ class BaseIrcBot(SingleServerIRCBot):
     def __init__(self):
         super(BaseIrcBot, self).__init__([(settings.SERVER,),], settings.NICK, settings.REALNAME)
 
-        self.last_sent = datetime.datetime.now()
+        # used by simple implementation
+        # self.last_sent = datetime.datetime.now()
+        self.last_sent = []
+
         self.msg_queue = Queue() # message queue
         self._start_msg_consumer()
 
@@ -294,10 +220,11 @@ class BaseIrcBot(SingleServerIRCBot):
             
         return plugin_instance
 
-    def _unload_plugin(self, plugin):
+    def unload_plugin(self, plugin):
         self.error_logger.info('Unloading %s.', plugin)
-        
-        self.plugins.remove(plugins)
+
+        if plugin in self.plugins: # or it could be the auth_plugin
+            self.plugins.remove(plugin)
         for command_class in plugin.COMMANDS:
             for name, command in self.commands.iteritems():
                 if command == command_class:
@@ -334,23 +261,36 @@ class BaseIrcBot(SingleServerIRCBot):
     # and thus if the command will overflow
     # (overflow = the read buffer is already full and we try to send more data)
 
-    def _check_flood_danger(self):
+    def _check_flood_danger2(self):
         """
         very basic implementation
         """
         return (datetime.datetime.now()- self.last_sent).seconds < self.TIME_BETWEEN_MSGS
 
-    def _check_flood_danger2(self):
+    def _check_flood_danger(self):
         """
         We try to make a wild guess on the server process time
         so we can chain a lot of small commands, but larger responses trigger the timer
         """
-        pass
+        # TODO : get rid of double used settings
+        now = datetime.datetime.now()
+        def _sum_bytes():
+            return sum([s['bytes'] for s in self.last_sent if (now - s['time']).seconds > self.FLOOD_PROTECTION_TIMER])
+
+        def _clean():
+            for s in self.last_sent:
+                if (now-s['time']).seconds > self.FLOOD_PROTECTION_TIMER:
+                    self.last_sent.remove(s)
+
+        sb = _sum_bytes()
+        _clean()
+        return (sb > self.MAX_MSG_LEN)
 
     #########################################################################
 
     def _send(self, msg):
-        self.last_sent = datetime.datetime.now()
+        #self.last_sent = datetime.datetime.now()
+        self.last_sent.append({'time':datetime.datetime.now(), 'bytes': len(msg.text)})
         self.msg_logger.info('%s - %s: %s' % (msg.target, settings.NICK, msg.text))
         self.server.privmsg(msg.target, msg.text)
 
@@ -492,7 +432,8 @@ class BaseIrcBot(SingleServerIRCBot):
                         if self.check_command_timer(ev.source.nick):
                             cmd.handle()
                         else:
-                            self.error_logger.warning('Flood attempt by %s.' % ev.source)
+                            self.error_logger.warning(u'Flood attempt by %s.' % ev.source)
+                            self.send(ev.target, u'Nop.')
                 except KeyError, e:
                     self.error_logger.warning('Invalid command : %s by %s' % (e, ev.source))
                 except NotImplementedError, e:

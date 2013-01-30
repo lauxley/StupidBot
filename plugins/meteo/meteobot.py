@@ -2,7 +2,8 @@
 from datetime import datetime
 from unidecode import unidecode
 
-from basebot import BaseAuthCommand, BaseBotPlugin
+from basebot import BaseBotPlugin
+from auth import BaseAuthCommand
 import settings
 
 from worldweatheronline import get_weather

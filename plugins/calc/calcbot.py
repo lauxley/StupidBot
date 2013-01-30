@@ -4,7 +4,7 @@ import re
 import string
 import threading
 
-from basebot import BaseBotPlugin, BaseCommand
+from basebot import BaseBotPlugin, BaseCommand, BadCommandLineException
 import settings
 
 CALC_TIMEOUT = getattr(settings, 'CALC_TIMEOUT', 2) # seconds
@@ -31,7 +31,7 @@ def timeout(func, args=(), kwargs={}, timeout=10, default=None):
         # todo : switch to subprocess
         raise TimeoutException
     else:
-        return t.result
+        return getattr(t, 'result', u'Nop.')
 
 
 def safe_calc(expr):
