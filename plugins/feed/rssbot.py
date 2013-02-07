@@ -238,7 +238,7 @@ class RssPlugin(BaseBotPlugin):
     db_file = 'feeds.db'
 
     FETCH_TIME = getattr(settings, 'FEED_FETCH_TIME', 2) # in minutes
-    MAX_ENTRIES = getattr(settings, 'FEED_MAX_ENTRIES', 2) # maximum entries to display when fetching a feed
+    MAX_ENTRIES = getattr(settings, 'FEED_MAX_ENTRIES', 5) # maximum entries to display when fetching a feed
 
     COMMANDS = [ AddFeedCommand, FeedListCommand, FeedRemoveCommand, FeedCommand, FeedAddFilter, FeedAddExclude ]
  

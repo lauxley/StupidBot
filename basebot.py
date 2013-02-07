@@ -275,7 +275,7 @@ class BaseIrcBot(SingleServerIRCBot):
         # TODO : get rid of double used settings
         now = datetime.datetime.now()
         def _sum_bytes():
-            return sum([s['bytes'] for s in self.last_sent if (now - s['time']).seconds > self.FLOOD_PROTECTION_TIMER])
+            return sum([s['bytes'] for s in self.last_sent if (now - s['time']).seconds >= self.FLOOD_PROTECTION_TIMER])
 
         def _clean():
             for s in self.last_sent:
@@ -343,7 +343,7 @@ class BaseIrcBot(SingleServerIRCBot):
 
         error_logger = logging.getLogger('errorlog')
         error_logger.setLevel(logging.INFO)
-        handler = handlers.RotatingFileHandler(os.path.join(settings.LOG_DIR, 'error.log'), maxBytes=1024*100) # 100 kB
+        handler = handlers.RotatingFileHandler(os.path.join(settings.LOG_DIR, 'error.log'), maxBytes=1024*100, backupCount=5) # 100 kB
         handler.setFormatter(formatter)
         error_logger.addHandler(handler)
         self.error_logger = error_logger
