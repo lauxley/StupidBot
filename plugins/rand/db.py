@@ -23,8 +23,10 @@ class RandDb(object):
 
     def __init__(self):
         if not os.path.isfile(self.db_file):
-            self._make_db()
-        self._connect()
+            self._connect()
+            self.make()
+        else:
+            self._connect()
 
     def close(self):
         self.conn.close()
@@ -126,7 +128,7 @@ class RandDb(object):
         if like:
             cur.execute("SELECT DISTINCT(user) FROM rolls WHERE user LIKE ?;", ('%'+like+'%',))
         else:
-            cur.execute("SELECT DISTINCT(user) FROM rolls;")            
+            cur.execute("SELECT DISTINCT(user) FROM rolls;")
         return [u[0] for u in cur.fetchall()]
 
     def merge(self, user1, *users):

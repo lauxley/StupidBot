@@ -180,7 +180,6 @@ class PingCommand(BaseCommand):
     HELP = u'peng'
 
     def get_response(self):
-        # TODO do a real pinglol ?
         return u'pong'
 
 
@@ -329,7 +328,6 @@ class BaseIrcBot(SingleServerIRCBot):
         We try to make a wild guess on the server process time
         so we can chain a lot of small commands, but larger responses trigger the timer
         """
-        # TODO : get rid of double used settings
         now = datetime.datetime.now()
         def _sum_bytes():
             return sum([s['bytes'] for s in self.last_sent if (now - s['time']).seconds >= self.FLOOD_TIMER])
