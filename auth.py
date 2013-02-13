@@ -155,7 +155,6 @@ class BaseIdentPlugin(BaseAuthPlugin):
     def __init__(self, bot):
         super(BaseIdentPlugin, self).__init__(bot)
         self.auths = {}
-        self.authentify()
 
     def get_auth(self, user):
         if user in self.auths:
@@ -176,6 +175,10 @@ class BaseIdentPlugin(BaseAuthPlugin):
 
     def get_username(self, user):
         return user.get_auth()
+
+
+    def on_welcome(self, serv, ev):
+        self.authentify()
 
     def _on_join(self, serv, ev):
         nick = ev.source.nick
