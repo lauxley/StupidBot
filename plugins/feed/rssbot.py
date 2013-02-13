@@ -145,7 +145,7 @@ class FeedRemoveCommand(BaseCommand):
         for feed in self.plugin.feeds:
             if feed.title == self.options[0] and feed.channel == chan:
                 self.plugin.feeds.remove(feed)
-                return "Done. %s won't bother you anymore." % title
+                return "Done. %s won't bother you anymore." % feed.title
         return "Couldn't delete feed %s." % self.options[0]
 
 

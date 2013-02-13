@@ -138,6 +138,7 @@ class BaseTrigger(object):
     def process(self):
         pass
 
+
 class BaseBotPlugin(object):
     """
     Abstract class for any irc bot plugin
@@ -147,6 +148,48 @@ class BaseBotPlugin(object):
 
     def __init__(self, bot):
         self.bot = bot
+
+
+class HelpCommand(BaseCommand):
+    NAME = u'help'
+    HELP = u"""Display this help."""
+
+    def get_response(self):
+        if self.options:
+            cmd = self.options[0]
+            try:
+                msg = self.bot.commands[cmd].HELP
+            except KeyError,e:
+                msg = u"No such command."
+        else:
+            msg = u"Here are the currently implemented commands : %s" % ', '.join(['!%s' % k for k in self.bot.commands.keys() if not getattr(self.bot.commands[k], 'HIDDEN', False)])
+
+        return msg
+
+
+class VersionCommand(BaseCommand):
+    NAME = u'version'
+    HELP = u"Display the bot version."
+
+    def get_response(self):
+        return u"version: %s" % self.bot.VERSION
+
+
+class PingCommand(BaseCommand):
+    NAME = u'ping'
+    HELP = u'peng'
+
+    def get_response(self):
+        # TODO do a real pinglol ?
+        return u'pong'
+
+
+class RestartCommand(BaseCommand):
+    pass
+
+
+class ReconnectCommand(BaseCommand):
+    pass
 
 
 class Message():
@@ -172,7 +215,10 @@ class BaseIrcBot(SingleServerIRCBot):
     # the number of commands before we stop answering (if set to 2, the 3rd command will remain unanswered)
     FLOOD_PROTECTION_MAX_COMMANDS = getattr(settings, 'FLOOD_PROTECTION_MAX_COMMANDS', 2)
     # the number of seconds before we reset the command timer
-    FLOOD_PROTECTION_TIMER = getattr(settings, 'FLOOD_PROTECTION_TIMER', 2)
+    FLOOD_PROTECTION_TIMER = getattr(settings, 'FLOOD_PROTECTION_TIMER', 4)
+
+    FLOOD_MAX_CHARS = getattr(settings, 'FLOOD_MAX_CHARS', 500)
+    FLOOD_TIMER = getattr(settings, 'FLOOD_TIMER', 4)
 
     def __init__(self):
         super(BaseIrcBot, self).__init__([(settings.SERVER,),], settings.NICK, settings.REALNAME)
@@ -193,13 +239,17 @@ class BaseIrcBot(SingleServerIRCBot):
         self.commands = {}
         self.triggers = {}
 
+        self._init_plugins()
         self.ircobj.add_global_handler("all_events", self.global_handler)
 
-    def _load_plugin(self, plugin):
+    def _load_plugin(self, plugin, append_plugin_dir=True):
         self.error_logger.info('Loading %s.', plugin)
 
         try:
-            mod = __import__(getattr(settings, 'PLUGINS_DIR', '')+'.'+'.'.join(plugin.split('.')[:-1]), globals(), locals(), [plugin.split('.')[-1]])
+            if append_plugin_dir:
+                mod = __import__(getattr(settings, 'PLUGINS_DIR', '')+'.'+'.'.join(plugin.split('.')[:-1]), globals(), locals(), [plugin.split('.')[-1]])
+            else:
+                mod = __import__('.'.join(plugin.split('.')[:-1]), globals(), locals(), [plugin.split('.')[-1]])
         except ImportError, e:
             self.error_logger.error("Can not import Plugin %s : %s" % (plugin, e))
             return 
@@ -240,8 +290,8 @@ class BaseIrcBot(SingleServerIRCBot):
             self.triggers.update({trigger_class.REGEXP : trigger_class})
             trigger_class.plugin = self
 
-        auth_plugin = getattr(settings, 'AUTH_PLUGIN', 'basebot.BaseAuthPlugin')
-        self.auth_plugin = self._load_plugin(auth_plugin)
+        auth_plugin = getattr(settings, 'AUTH_PLUGIN', 'auth.BaseAuthPlugin')
+        self.auth_plugin = self._load_plugin(auth_plugin, append_plugin_dir=False)
         
         for plugin in getattr(settings, 'PLUGINS', []):
             self.plugins.append(self._load_plugin(plugin))
@@ -275,16 +325,16 @@ class BaseIrcBot(SingleServerIRCBot):
         # TODO : get rid of double used settings
         now = datetime.datetime.now()
         def _sum_bytes():
-            return sum([s['bytes'] for s in self.last_sent if (now - s['time']).seconds >= self.FLOOD_PROTECTION_TIMER])
+            return sum([s['bytes'] for s in self.last_sent if (now - s['time']).seconds >= self.FLOOD_TIMER])
 
         def _clean():
             for s in self.last_sent:
-                if (now-s['time']).seconds > self.FLOOD_PROTECTION_TIMER:
+                if (now-s['time']).seconds > self.FLOOD_TIMER:
                     self.last_sent.remove(s)
 
         sb = _sum_bytes()
         _clean()
-        return (sb > self.MAX_MSG_LEN)
+        return (sb > self.FLOOD_MAX_CHARS)
 
     #########################################################################
 
@@ -300,10 +350,10 @@ class BaseIrcBot(SingleServerIRCBot):
         """
         while True:
             msg = self.msg_queue.get()
-            
-            if self._check_flood_danger():
+
+            while self._check_flood_danger():                
                 time.sleep(self.TIME_BETWEEN_MSGS)
-            
+                        
             while len(msg.text) > self.MAX_MSG_LEN:
                 ind = msg.text.rfind(" ", 0, self.MAX_MSG_LEN)
                 if ind == -1:
@@ -312,7 +362,8 @@ class BaseIrcBot(SingleServerIRCBot):
                 msg.text = msg.text[:ind]
                 self._send(msg)
                 msg.text = buff
-                time.sleep(self.TIME_BETWEEN_MSGS) # so we don't get disco for excess flood
+                while self._check_flood_danger():                
+                    time.sleep(self.TIME_BETWEEN_MSGS)
             
             self._send(msg)
 
@@ -352,8 +403,6 @@ class BaseIrcBot(SingleServerIRCBot):
         self.server = serv
         # changing the default Buffer to ensure no encoding error
         self.connection.buffer = CompliantDecodingLineBuffer()
-
-        self._init_plugins()
 
         for chan in settings.START_CHANNELS:
             self.connection.join(chan)
