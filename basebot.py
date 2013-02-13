@@ -279,6 +279,10 @@ class BaseIrcBot(SingleServerIRCBot):
             for name, command in self.commands.iteritems():
                 if command == command_class:
                     del self.commands[name]
+        for trigger_class in plugin.TRIGGERS:
+            for name, trigger in self.triggers.iteritems():
+                if trigger == trigger_class:
+                    del self.triggers[name]
 
     def _init_plugins(self):
         for command_class in self.COMMANDS:
@@ -290,9 +294,11 @@ class BaseIrcBot(SingleServerIRCBot):
             self.triggers.update({trigger_class.REGEXP : trigger_class})
             trigger_class.plugin = self
 
-        auth_plugin = getattr(settings, 'AUTH_PLUGIN', 'auth.BaseAuthPlugin')
-        self.auth_plugin = self._load_plugin(auth_plugin, append_plugin_dir=False)
-        
+        if hasattr(settings, 'AUTH_PLUGIN'):
+            self.auth_plugin = self._load_plugin(getattr(settings, 'AUTH_PLUGIN', 'auth.BaseAuthPlugin'))
+        else:
+            self.auth_plugin = self._load_plugin('auth.BaseAuthPlugin', append_plugin_dir=False)
+
         for plugin in getattr(settings, 'PLUGINS', []):
             self.plugins.append(self._load_plugin(plugin))
         self.error_logger.info("Done loading plugins.")
