@@ -176,7 +176,6 @@ class BaseIdentPlugin(BaseAuthPlugin):
     def get_username(self, user):
         return user.get_auth()
 
-
     def on_welcome(self, serv, ev):
         self.authentify()
 

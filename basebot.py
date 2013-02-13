@@ -268,6 +268,7 @@ class BaseIrcBot(SingleServerIRCBot):
             self.triggers.update({trigger_class.REGEXP : trigger_class})
             trigger_class.plugin = plugin_instance
             
+        self.plugins.append(plugin_instance)
         return plugin_instance
 
     def unload_plugin(self, plugin):
@@ -300,9 +301,9 @@ class BaseIrcBot(SingleServerIRCBot):
             self.auth_plugin = self._load_plugin('auth.BaseAuthPlugin', append_plugin_dir=False)
 
         for plugin in getattr(settings, 'PLUGINS', []):
-            self.plugins.append(self._load_plugin(plugin))
-        self.error_logger.info("Done loading plugins.")
+            self._load_plugin(plugin)
 
+        self.error_logger.info("Done loading plugins.")
 
     def _start_msg_consumer(self):
         t = Thread(target=self._msg_consumer)
@@ -413,6 +414,10 @@ class BaseIrcBot(SingleServerIRCBot):
         for chan in settings.START_CHANNELS:
             self.connection.join(chan)
 
+        for plugin in self.plugins:
+            if hasattr(plugin, 'on_welcome'):
+                getattr(plugin, 'on_welcome')(serv, ev)
+
     def _on_join(self, serv, ev):
         super(BaseIrcBot, self)._on_join(serv, ev)
         self.msg_logger.info(u"%s joined the channel %s." % (ev.source.nick, ev.target))
@@ -440,6 +445,7 @@ class BaseIrcBot(SingleServerIRCBot):
     # we dispatch all the handlers to the plugins in case they have something to do
     def _dispatcher(self, serv, ev):
         super(BaseIrcBot, self)._dispatcher(serv, ev)
+
         for plugin in self.plugins:
             m = "on_" + ev.type
             if hasattr(plugin, m):
