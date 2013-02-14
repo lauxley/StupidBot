@@ -3,12 +3,12 @@ import sys
 
 import settings
 
-from basebot import BaseIrcBot, BaseCommand, HelpCommand, VersionCommand, PingCommand
+from basebot import BaseIrcBot, BaseCommand, HelpCommand, VersionCommand, PingCommand, ReconnectCommand, RestartCommand
 
 class StupidIrcBot(BaseIrcBot):
     VERSION = u'0.9.1'
 
-    COMMANDS = [HelpCommand, VersionCommand, PingCommand]
+    COMMANDS = [HelpCommand, VersionCommand, PingCommand, ReconnectCommand] #RestartCommand
     TRIGGERS = []
         
 

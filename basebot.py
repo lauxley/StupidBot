@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+import sys
 from threading import Thread
 from Queue import Queue
 import datetime, time
@@ -184,11 +185,31 @@ class PingCommand(BaseCommand):
 
 
 class RestartCommand(BaseCommand):
-    pass
+    NAME = u"restart"
+    HELP = u"restart the bot."
+    REQUIRE_ADMIN = True
+
+    def process(self):
+        # TODO:
+        # env?
+        # screen ?
+        # sys.exit ?
+        self.bot.error_logger.info("Restarting the bot...")
+        executable = sys.executable
+        args = sys.argv[:]
+        args.insert(0, sys.executable)
+        os.execvp(executable, args)
 
 
 class ReconnectCommand(BaseCommand):
-    pass
+    NAME = u"reconnect"
+    HELP = u"reconnect"
+    REQUIRE_ADMIN = True    
+
+    def process(self):
+        self.bot.error_logger.info("Disconnecting because you asked so ...")
+        self.bot.disconnect("Nop.")
+        self.bot._connect()
 
 
 class Message():
