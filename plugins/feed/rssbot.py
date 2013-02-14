@@ -3,6 +3,7 @@ import os.path
 import sqlite3
 import urlparse
 import datetime, time
+import bleach
 from threading import Thread
 
 import feedparser
@@ -49,8 +50,7 @@ class RssFeed(object):
 
     def tell_more(self, entry):
         try:
-            # TODO : strip html
-            return [entry.title, entry.summary, entry.link]
+            return [entry.title, bleach.clean(entry.summary, tags=[], strip=True), entry.link]
         except (IndexError, AttributeError), e:
             self.plugin.bot.error_logger.error("Bad parameter to RssFeed.tell : %s" % e)
             return u'Bad parameters.'
