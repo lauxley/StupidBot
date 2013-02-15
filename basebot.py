@@ -350,7 +350,7 @@ class BaseIrcBot(SingleServerIRCBot):
         """
         now = datetime.datetime.now()
         def _sum_bytes():
-            return sum([s['bytes'] for s in self.last_sent if (now - s['time']).seconds >= self.FLOOD_TIMER])
+            return sum([s['bytes'] for s in self.last_sent if (now - s['time']).seconds <= self.FLOOD_TIMER])
 
         def _clean():
             for s in self.last_sent:
