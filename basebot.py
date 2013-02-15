@@ -236,8 +236,7 @@ class BaseIrcBot(SingleServerIRCBot):
     FLOOD_PROTECTION_MAX_COMMANDS = getattr(settings, 'FLOOD_PROTECTION_MAX_COMMANDS', 2)
     # the number of seconds before we reset the command timer
     FLOOD_PROTECTION_TIMER = getattr(settings, 'FLOOD_PROTECTION_TIMER', 4)
-
-    FLOOD_MAX_CHARS = getattr(settings, 'FLOOD_MAX_CHARS', 500)
+    # the period of time in which the bot is allowed to send MAX_MSG_LEN bytes
     FLOOD_TIMER = getattr(settings, 'FLOOD_TIMER', 4)
 
     def __init__(self):
@@ -344,7 +343,7 @@ class BaseIrcBot(SingleServerIRCBot):
         """
         return (datetime.datetime.now()- self.last_sent).seconds < self.TIME_BETWEEN_MSGS
 
-    def _check_flood_danger(self):
+    def _check_flood_danger(self, msg):
         """
         We try to make a wild guess on the server process time
         so we can chain a lot of small commands, but larger responses trigger the timer
@@ -358,14 +357,15 @@ class BaseIrcBot(SingleServerIRCBot):
                 if (now-s['time']).seconds > self.FLOOD_TIMER:
                     self.last_sent.remove(s)
 
-        sb = _sum_bytes()
+        sb = _sum_bytes() + len(msg.text)
         _clean()
-        return (sb > self.FLOOD_MAX_CHARS)
+        return (sb > self.MAX_MSG_LEN)
 
     #########################################################################
 
     def _send(self, msg):
-        #self.last_sent = datetime.datetime.now()
+        while self._check_flood_danger(msg):                
+            time.sleep(self.TIME_BETWEEN_MSGS)
         self.last_sent.append({'time':datetime.datetime.now(), 'bytes': len(msg.text)})
         self.msg_logger.info('%s - %s: %s' % (msg.target, settings.NICK, msg.text))
         self.server.privmsg(msg.target, msg.text)
@@ -376,10 +376,6 @@ class BaseIrcBot(SingleServerIRCBot):
         """
         while True:
             msg = self.msg_queue.get()
-
-            while self._check_flood_danger():                
-                time.sleep(self.TIME_BETWEEN_MSGS)
-                        
             while len(msg.text) > self.MAX_MSG_LEN:
                 ind = msg.text.rfind(" ", 0, self.MAX_MSG_LEN)
                 if ind == -1:
@@ -388,9 +384,6 @@ class BaseIrcBot(SingleServerIRCBot):
                 msg.text = msg.text[:ind]
                 self._send(msg)
                 msg.text = buff
-                while self._check_flood_danger():                
-                    time.sleep(self.TIME_BETWEEN_MSGS)
-            
             self._send(msg)
 
     def send(self, target, msg):
@@ -513,7 +506,8 @@ class BaseIrcBot(SingleServerIRCBot):
                             cmd.handle()
                         else:
                             self.error_logger.warning(u'Flood attempt by %s.' % ev.source)
-                            self.send(ev.target, u'Nop.')
+                            #self.send(ev.target, u'Nop.')
+                            self.server.privmsg(ev.target, u'Nop.')
                 except KeyError, e:
                     self.error_logger.warning('Invalid command : %s by %s' % (e, ev.source))
                 except NotImplementedError, e:
