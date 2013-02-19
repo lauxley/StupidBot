@@ -2,7 +2,8 @@ from __future__ import division
 import math
 import re
 import string
-import threading
+#import threading
+from multiprocessing import Process, Queue
 
 from basebot import BaseBotPlugin, BaseCommand, BadCommandLineException
 import settings
@@ -19,19 +20,19 @@ class UnsafeExpressionException(Exception):
 
 
 def timeout(func, args=(), kwargs={}, timeout=10, default=None):
-    class ResultThread(threading.Thread):
+    result_queue = Queue()
+    class ResultProcess(Process):
         def run(self):
-            self.result = func(*args, **kwargs)
-    t = ResultThread()
-    t.daemon = True
-    t.start()
-    t.join(timeout)
-    if t.isAlive():
-        # note that the thread is still running :(
-        # todo : switch to subprocess
+            result_queue.put(func(*args, **kwargs))
+
+    p = ResultProcess(target=func, args=args, kwargs=kwargs)
+    p.daemon = True
+    p.start()
+    p.join(timeout)
+    if p.is_alive():
         raise TimeoutException
     else:
-        return getattr(t, 'result', u'Nop.')
+        return result_queue.get() or default
 
 
 def safe_calc(expr):
@@ -57,7 +58,7 @@ def safe_calc(expr):
     expr = _check_implicit_operations(expr) # replace things like 4(3+2) by 4*(3+2)
 
     if _is_safe(expr):
-        result = timeout(_do_calc, args=[expr,], timeout=CALC_TIMEOUT)
+        result = timeout(_do_calc, args=[expr,], timeout=CALC_TIMEOUT, default=u"Nop.")
         return result
     else:
         raise UnsafeExpressionException

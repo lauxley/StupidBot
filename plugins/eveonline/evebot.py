@@ -41,8 +41,11 @@ class EvePlugin(BaseBotPlugin):
         elif self.online:
             status = u"Online"
         else:
-            satus = u"Offline"
-        return u"Eve online Server status : %s." % status
+            status = u"Offline"
+        msg = u"Eve online Server status : %s." % status
+        if self.nb:
+            msg = msg + " (%d players)" % self.nb
+        return  msg
 
     def _poll(self):
         # polling
@@ -51,12 +54,17 @@ class EvePlugin(BaseBotPlugin):
                 data = urllib.urlopen(self.API_ONLINE_URL).read()
                 dom = parseString(data)
                 online = dom.getElementsByTagName("serverOpen")[0].firstChild.wholeText
+                nbnode = dom.getElementsByTagName("onlinePlayers")
+                if nbnode:
+                    self.nb = int(nbnode[0].firstChild.wholeText)
+                else:
+                    self.nb = 0
                 o = (online == u"True")
                 if o != self.online:
                     self.online = o
                     for chan in self.registered_chans:
                         self.bot.send(chan, self.tell_status)
-            except e:
+            except (TypeError, IndexError, ValueError), e:
                 self.bot.error_logger.error("Error fetching eve status : %s" % e)
             time.sleep(self.FETCH_TIME*60)
 
