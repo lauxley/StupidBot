@@ -61,7 +61,7 @@ def safe_calc(expr):
     def _do_calc(expr):
         return str(eval(expr, dict(__builtins__=None), vars(math)))
 
-    expr = string.replace(expr,",",".") # european style
+    expr = epr.replace(",",".").replace(" ", "") # european style
     expr = _check_implicit_operations(expr) # replace things like 4(3+2) by 4*(3+2)
 
     if _is_safe(expr):
