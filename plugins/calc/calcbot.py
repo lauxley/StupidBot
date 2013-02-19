@@ -23,7 +23,10 @@ def timeout(func, args=(), kwargs={}, timeout=10, default=None):
     result_queue = Queue()
     class ResultProcess(Process):
         def run(self):
-            result_queue.put(func(*args, **kwargs))
+            try:
+                result_queue.put(func(*args, **kwargs))
+            except Exception, e:
+                result_queue.put(e)
 
     p = ResultProcess(target=func, args=args, kwargs=kwargs)
     p.daemon = True
@@ -82,7 +85,7 @@ class CalcCommand(BaseCommand):
         except TimeoutException, e:
             self.plugin.bot.error_logger.error(u'timeout trying to calculate : %s.' % self.options[0])
             return 'Sorry, it was taking me too long, i quit.'
-        except UnsafeExpressionException,e:
+        except UnsafeExpressionException, e:
             self.plugin.bot.error_logger.warning(u'Unsafe expression %s.' % self.options[0])
             return u'What are you trying to do exactly ?'
 
