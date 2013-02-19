@@ -46,7 +46,7 @@ def safe_calc(expr):
     def _is_safe(expr):
         whitelist = '^('+'|'.join(
         # oprators, digits
-        ['-', r'\+', '/', r'\\', r'\*', r'\^', r'\*\*', r'\(', r'\)', '\d+']
+        ['-', r'\+', '/', r'\\', r'\*', r'\^', r'\*\*', r'\(', r'\)', '\d+', '\.']
         # functions of math module (ex. __xxx__)
         + [f for f in dir(math) if f[:2] != '__']) + ')*$'
         return re.match(whitelist, expr)
@@ -81,6 +81,8 @@ class CalcCommand(BaseCommand):
             raise BadCommandLineException
 
     def get_response(self):
+        # TODO : be less explicit .
+
         try:
             result = safe_calc(self.options[0])
         except TypeError, e:
