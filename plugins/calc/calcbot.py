@@ -93,7 +93,11 @@ class CalcCommand(BaseCommand):
             self.plugin.bot.error_logger.warning(u'Unsafe expression %s.' % self.options[0])
             return u'What are you trying to do exactly ?'
         except ZeroDivisionError, e:
+            self.plugin.bot.error_logger.error(u'Divizion by 0 : %s.' % self.options[0])
             return u"OMG, you fool ! (division by zero)"
+        except ValueError, e:
+            self.plugin.bot.error_logger.error(u'Math domain error : %s.' % self.options[0])
+            return u"This doesn't seems right.. (%s)" % e
 
         return result
 
