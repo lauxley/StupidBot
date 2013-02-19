@@ -35,7 +35,11 @@ def timeout(func, args=(), kwargs={}, timeout=10, default=None):
     if p.is_alive():
         raise TimeoutException
     else:
-        return result_queue.get() or default
+        r = result_queue.get()
+        if isinstance(r, Exception):
+            raise r
+        else:
+            return r or default
 
 
 def safe_calc(expr):
@@ -88,6 +92,8 @@ class CalcCommand(BaseCommand):
         except UnsafeExpressionException, e:
             self.plugin.bot.error_logger.warning(u'Unsafe expression %s.' % self.options[0])
             return u'What are you trying to do exactly ?'
+        except ZeroDivisionError, e:
+            return u"OMG, you fool ! (division by zero)"
 
         return result
 
