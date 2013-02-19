@@ -98,6 +98,9 @@ class CalcCommand(BaseCommand):
         except ValueError, e:
             self.plugin.bot.error_logger.error(u'Math domain error : %s.' % self.options[0])
             return u"This doesn't seems right.. (%s)" % e
+        except SyntaxError, e:
+            self.plugin.bot.error_logger.error(u'Syntax error : %s.' % self.options[0])
+            return u"Syntax error : %s." % e
 
         return result
 
