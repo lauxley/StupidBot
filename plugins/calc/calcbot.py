@@ -52,7 +52,7 @@ def safe_calc(expr):
         return re.match(whitelist, expr)
 
     def _check_implicit_operations(expr):
-        r = r'(\d+)(\(.*\))'
+        r = r'(\d+|\))(\(.*\))'
         expr = re.sub(r, lambda s: '%s*%s' % (s.group(1), s.group(2)), expr)
         r = r'(\(.*\))(\d+)'
         expr = re.sub(r, lambda s: '%s*%s' % (s.group(2), s.group(1)), expr)
