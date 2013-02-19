@@ -61,7 +61,7 @@ def safe_calc(expr):
     def _do_calc(expr):
         return str(eval(expr, dict(__builtins__=None), vars(math)))
 
-    expr = epr.replace(",",".").replace(" ", "") # european style
+    expr = expr.replace(",",".").replace(" ", "") # european style
     expr = _check_implicit_operations(expr) # replace things like 4(3+2) by 4*(3+2)
 
     if _is_safe(expr):
@@ -84,7 +84,7 @@ class CalcCommand(BaseCommand):
         # TODO : be less explicit .
 
         try:
-            result = safe_calc(self.options[0])
+            result = safe_calc("".join(self.options[0:]))
         except TypeError, e:
             self.plugin.bot.error_logger.warning(u"Invalid calc %s : %s" % (self.options[0], e))
             return u"Sorry, this calculator is stupid, try something more explicit."
