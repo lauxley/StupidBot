@@ -33,6 +33,7 @@ def timeout(func, args=(), kwargs={}, timeout=10, default=None):
     p.start()
     p.join(timeout)
     if p.is_alive():
+        p.terminate()
         raise TimeoutException
     else:
         r = result_queue.get()
