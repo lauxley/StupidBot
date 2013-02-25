@@ -60,10 +60,6 @@ def get_weather(location, qdate='tomorow'):
             elif qdate == "weekend":
                 # this will raise an IndexError from saturday to monday
                 # because the data only contains 5 days
-
-                from IPython import embed
-                embed()
-
                 index = 7-int(date.today().strftime('%w'))
                 root = jd['weather'][index]
                 day = date.today() + timedelta(days=index)
