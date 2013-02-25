@@ -1,3 +1,4 @@
+import threading
 from basebot import BaseCommand, BaseBotPlugin, BaseTrigger
 
 class BaseAuth(object):
@@ -8,6 +9,7 @@ class BaseAuth(object):
         self.callbacks = []
         self._checked = False
         self.bot = bot
+        self.timeout_flag = False
         self.check_authed()
 
     def get_auth(self):
@@ -29,16 +31,30 @@ class BaseAuth(object):
                 cb['fn'](self, *cb['args'])
                 del cb
             
+
+    def set_timeout(self):
+        def _timedout():
+            if self.timeout_flag:
+                # the bot timed out, netsplit or whatever, he is not responding
+                self.bot.error_logger.error("%s is not responding." % self.AUTH_BOT)
+                self.timeout_flag = False
+                self.set_auth(None)
+
+        self.timeout_flag = True
+        threading.Timer(self.bot.auth_plugin.AUTH_BOT_TIMEOUT, _timedout).start()
+
     def check_authed(self):
         self._checked = True
         self.is_checking = True
         self.bot.send(self.bot.auth_plugin.AUTH_BOT, self.USER_INFO_CMD % self.nick)
+        self.set_timeout()
 
     def add_callback(self, cb, args):
         if cb:
             self.callbacks.append({'fn':cb,'args':args})
 
     def set_auth(self, auth):
+        self.timeout_flag = False
         self.is_checking = False
         self.auth = auth
         self.process_callbacks()
@@ -151,6 +167,7 @@ class BaseIdentPlugin(BaseAuthPlugin):
 
     AUTH_BOT = ""  # the name of the bot used to identify
     AUTH_CLASS = BaseAuth
+    AUTH_BOT_TIMEOUT = 5 # in seconds
 
     def __init__(self, bot):
         super(BaseIdentPlugin, self).__init__(bot)

@@ -48,9 +48,8 @@ class BotNotAuthedTrigger(BaseTrigger):
     REGEXP = r"WHOIS is only available to authed users."
 
     def handle(self):
-        self.bot.unload_plugin(self.bot.auth_plugin)
-        self.bot.auth_plugin = BaseAuthPlugin
-        self.bot.error_logger.error(u'The bot is not Authed for some reason ! the Quakenet Auth Plugin has been desactivated.')
+        self.bot.error_logger.error(u'The bot was not authentified for some reason ...')
+        self.bot.auth_plugin.authentify()
 
 
 class BotAuthedTrigger(BaseTrigger):
