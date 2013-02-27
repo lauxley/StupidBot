@@ -293,8 +293,11 @@ class RssPlugin(BaseBotPlugin):
             
             last_entry = data['entries'][0]['id']
 
-            upd = getattr(data,'updated',None) or getattr(data, 'published', None) or data['entries'][0]['published']
-            last_updated = datetime.datetime.strptime(upd[:24], '%a, %d %b %Y %H:%M:%S')
+            if 'updated_parsed' in data['feed']:
+                last_updated = datetime.datetime.fromtimestamp(time.mktime(data['feed']['updated_parsed']))
+            else:
+                upd = getattr(data,'updated',None) or getattr(data, 'published', None) or data['entries'][0]['published']
+                last_updated = datetime.datetime.strptime(upd[:24], '%a, %d %b %Y %H:%M:%S')
             
             feed = RssFeed(self, self._create_feed(feed_url, feed_title, last_entry, dt_to_sql(last_updated), chan))
             feed.entries = data['entries']
