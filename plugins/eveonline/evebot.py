@@ -11,6 +11,8 @@ class RegisterOnline(BaseCommand):
     def get_response(self):
         if self.ev.target.startswith('#'):
             self.plugin.registered_chans.add(self.ev.target)
+            if len(self.plugin.registered_chans) == 1:
+                self.plugin.fetch()
         return u"Done."
 
 
@@ -33,7 +35,8 @@ class EvePlugin(BaseBotPlugin):
         self.registered_chans = set()
 
     def on_welcome(self, serv, ev):
-        self.fetch()
+        if self.registered_chans:
+            self.fetch()
 
     def tell_status(self):
         if self.online is None:
@@ -63,7 +66,7 @@ class EvePlugin(BaseBotPlugin):
                 if o != self.online:
                     self.online = o
                     for chan in self.registered_chans:
-                        self.bot.send(chan, self.tell_status)
+                        self.bot.send(chan, self.tell_status())
             except (TypeError, IndexError, ValueError), e:
                 self.bot.error_logger.error("Error fetching eve status : %s" % e)
             time.sleep(self.FETCH_TIME*60)
