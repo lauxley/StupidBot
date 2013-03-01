@@ -92,7 +92,7 @@ class CalcCommand(BaseCommand):
         except TimeoutException, e:
             self.plugin.bot.error_logger.error(u'timeout trying to calculate : %s.' % self.options[0])
             return 'Sorry, it was taking me too long, i quit.'
-        except UnsafeExpressionException, e:
+        except (NameError, UnsafeExpressionException), e:
             self.plugin.bot.error_logger.warning(u'Unsafe expression %s.' % self.options[0])
             return u'What are you trying to do exactly ?'
         except ZeroDivisionError, e:
@@ -104,7 +104,7 @@ class CalcCommand(BaseCommand):
         except SyntaxError, e:
             self.plugin.bot.error_logger.error(u'Syntax error : %s.' % self.options[0])
             return u"Syntax error : %s." % e
-
+        
         return result
 
 
