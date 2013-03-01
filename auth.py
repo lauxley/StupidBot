@@ -220,8 +220,9 @@ class BaseIdentPlugin(BaseAuthPlugin):
         #                     "=" for others (public channels)
         # e.arguments[1] == channel
         # e.arguments[2] == nick list
-        # TODO
-        pass
+        user_list = e.arguments[2]
+        for nick in [n for n in user_list if n not in self.auths]:
+            self.auths[nick] = self.AUTH_CLASS(self.bot, nick)
 
     def authentify(self):
         """

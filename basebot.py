@@ -2,6 +2,8 @@ import logging
 import os
 import re
 import sys
+import signal
+import time
 from threading import Thread
 from Queue import Queue
 import datetime, time
@@ -55,16 +57,18 @@ class BaseCommand(object):
     def __init__(self, bot, ev):
         self.bot = bot
         self.ev = ev
-        try:
-            self.options = self.ev.arguments[0].strip().split(" ")[1:]
-        except IndexError, e:
-            self.options = []
-        # try:
+        
+        self.split_options(ev.arguments)
         self.parse_options() # the exception will be catched by the main loop
         # except BadCommandLineException, e:
 
-
         self.bot.error_logger.info('Command issued by %s : %s' % (ev.source, self.NAME))
+
+    def split_options(self, arguments):
+        try:
+            self.options = arguments[0].strip().split(" ")[1:]
+        except IndexError, e:
+            self.options = []
 
     def parse_options(self):
         """
@@ -113,7 +117,6 @@ class BaseCommand(object):
             self.bot.auth_plugin.get_user(self.ev.source.nick, self.check_admin)
         else:
             self.process()
-
 
 
 class BaseTrigger(object):
@@ -190,10 +193,7 @@ class RestartCommand(BaseCommand):
     REQUIRE_ADMIN = True
 
     def process(self):
-        # TODO:
-        # env?
-        # screen ?
-        # sys.exit ?
+        # TODO: use boot.sh
         self.bot.error_logger.info("Restarting the bot...")
         executable = sys.executable
         args = sys.argv[:]
@@ -208,9 +208,22 @@ class ReconnectCommand(BaseCommand):
 
     def process(self):
         self.bot.error_logger.info("Disconnecting because you asked so ...")
-        self.bot.disconnect("Nop.")
+        self.bot.disconnect()
         self.bot._connect()
 
+class IssueCommand(BaseCommand):
+    NAME = u"command"
+    ALIASES = [u"cmd",]
+    IS_HIDDEN = True
+    REQUIRE_ADMIN = True
+
+    def parse_options(self):
+        self.cmd_line = ' '.join(self.options)
+        if not len(self.cmd_line):
+            raise BadCommandLineException
+
+    def process(self):
+        self.bot.connection.send_raw(self.cmd_line)
 
 class Message():
     """
@@ -218,7 +231,7 @@ class Message():
     """
     def __init__(self, target, text):
         self.target = target
-        self.text = text
+        self.text = text 
 
 
 class BaseIrcBot(SingleServerIRCBot):
@@ -239,8 +252,11 @@ class BaseIrcBot(SingleServerIRCBot):
     # the period of time in which the bot is allowed to send MAX_MSG_LEN bytes
     FLOOD_TIMER = getattr(settings, 'FLOOD_TIMER', 4)
 
+    LEAVE_MESSAGE = getattr(settings, 'LEAVE_MESSAGE', 'Bye.')
+    RECONNECTION_INTERVAL = getattr(settings, 'RECONNECTION_INTERVAL', 30)
+
     def __init__(self):
-        super(BaseIrcBot, self).__init__([(settings.SERVER,),], settings.NICK, settings.REALNAME)
+        super(BaseIrcBot, self).__init__([(settings.SERVER,),], settings.NICK, settings.REALNAME, reconnection_interval=self.RECONNECTION_INTERVAL)
 
         # used by simple implementation
         # self.last_sent = datetime.datetime.now()
@@ -260,6 +276,18 @@ class BaseIrcBot(SingleServerIRCBot):
 
         self._init_plugins()
         self.ircobj.add_global_handler("all_events", self.global_handler)
+
+        # catch to disconnect gracefully..
+        signal.signal(signal.SIGINT, self.quit)
+        #signal.signal(signal.SIGKILL, self.quit)
+        signal.signal(signal.SIGTERM, self.quit)
+        signal.signal(signal.SIGQUIT, self.quit)
+
+    def quit(self, signal=None, frame=None):
+        self.error_logger.warning("Received a SIGINT|SIGKILL|SIGTERM (%s) signal, trying to quit gracefully" % str(signal))
+        self.disconnect()
+        time.sleep(2)
+        sys.exit(0)
 
     def _load_plugin(self, plugin, append_plugin_dir=True):
         self.error_logger.info('Loading %s.', plugin)
@@ -289,6 +317,9 @@ class BaseIrcBot(SingleServerIRCBot):
             
         self.plugins.append(plugin_instance)
         return plugin_instance
+
+    def disconnect(self, message=None):
+        super(BaseIrcBot, self).disconnect(message or self.LEAVE_MESSAGE)
 
     def unload_plugin(self, plugin):
         self.error_logger.info('Unloading %s.', plugin)
@@ -451,7 +482,7 @@ class BaseIrcBot(SingleServerIRCBot):
         self.msg_logger.info(u"%s left." % (ev.source.nick))
 
     def log_msg(self, ev):
-        if ev.target and ev.source:
+        if ev.target:
             self.msg_logger.info('%s - %s: %s' % (ev.target, ev.source.nick, ev.arguments[0]))
 
     # we dispatch all the handlers to the plugins in case they have something to do
