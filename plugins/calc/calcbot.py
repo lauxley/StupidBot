@@ -82,8 +82,6 @@ class CalcCommand(BaseCommand):
             raise BadCommandLineException
 
     def get_response(self):
-        # TODO : be less explicit .
-
         try:
             result = safe_calc("".join(self.options[0:]))
         except TypeError, e:

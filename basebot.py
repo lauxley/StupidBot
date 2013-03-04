@@ -280,7 +280,7 @@ class BaseIrcBot(SingleServerIRCBot):
         # catch to disconnect gracefully..
         signal.signal(signal.SIGINT, self.quit)
         #signal.signal(signal.SIGKILL, self.quit)
-        signal.signal(signal.SIGTERM, self.quit)
+        #signal.signal(signal.SIGTERM, self.quit)
         signal.signal(signal.SIGQUIT, self.quit)
 
     def quit(self, signal=None, frame=None):

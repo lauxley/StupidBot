@@ -79,7 +79,7 @@ class RssFeed(object):
 
         except (IndexError, KeyError), e:
             self.plugin.bot.error_logger.error("Something went wrong trying to update the Rss Feed %s : %s" % (self.title, e))
-
+        else:
             if updated > self.updated:
                 for entry in data['entries']:
                     if self.last_entry == entry['id']:
@@ -195,7 +195,6 @@ class FeedCommand(BaseCommand):
     * log old entries
     * & pass a date to !feed 
     * search interface (for example title=foobar) with grep ?!
-    * strip the html code or even better find the attribute without html code
     """
 
     NAME = "feed"
