@@ -103,8 +103,11 @@ class CalcCommand(BaseCommand):
             return u"This doesn't seems right.. (%s)" % e
         except SyntaxError, e:
             self.plugin.bot.error_logger.error(u'Syntax error : %s.' % self.options[0])
-            return u"Syntax error : %s." % e
-        
+            return u"Syntax error."
+        except (MemoryError, OverflowError), e:
+            self.plugin.bot.error_logger.error(u'Syntax error : %s.' % self.options[0])
+            return u"hmm ... a lot ?"
+
         return result
 
 
