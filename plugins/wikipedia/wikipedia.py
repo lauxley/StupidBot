@@ -29,7 +29,7 @@ class DefineCommand(BaseCommand):
             name = dom.getElementsByTagName('Text')[0].firstChild.wholeText
             description = dom.getElementsByTagName('Description')[0].firstChild.wholeText
         except (urllib2.URLError, ExpatError, IndexError, ValueError), e:
-            self.plugin.bot.error_logger.error('Problem trying to fetch a wikipedia description : %s' % e)
+            self.plugin.bot.error_logger.error('Problem trying to fetch a wikipedia description (%s): %s' % (request.get_full_url(), e))
             return u"Nop."
 
         return u"%s: %s" % (name, description)

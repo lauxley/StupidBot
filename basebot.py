@@ -431,12 +431,11 @@ class BaseIrcBot(SingleServerIRCBot):
             self._send(msg)
 
     def send(self, target, msg):
-        msg = msg.split("\n")
-        if type(msg) in [list, set]:
-            for m in msg:
-                self.msg_queue.put(Message(target, m))
-        else:
-            self.msg_queue.put(Message(target, msg))
+        if type(msg) not in [list, set]:
+            msg = msg.split("\n")
+
+        for m in msg:
+            self.msg_queue.put(Message(target, m))
 
     def get_needs_to_be_admin(self):
         return "Sorry, you can't do that by yourself, ask %s" % (" or ".join(settings.ADMINS))
