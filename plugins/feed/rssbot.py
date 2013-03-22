@@ -1,7 +1,6 @@
 import re
 import os.path
 import sqlite3
-import urlparse
 import datetime, time
 import bleach
 from threading import Thread
@@ -12,12 +11,14 @@ import settings
 
 from basebot import BaseBotPlugin, BaseCommand, BadCommandLineException
 
+
 def dt_to_sql(dt):
     if type(dt) == datetime.datetime:
         return datetime.datetime.strftime(dt, '%Y-%m-%d %H:%M:%S')
     elif type(dt) == time.struct_time:
         return datetime.datetime.fromtimestamp(time.mktime(dt))
     return None
+
 
 def from_sql_dt(dt):
     return datetime.datetime.strptime(dt, '%Y-%m-%d %H:%M:%S')
@@ -95,7 +96,7 @@ class RssFeed(object):
                     self.update()
 
         return new_data
-        
+
 
 class AddFeedCommand(BaseCommand):
     NAME = "feedadd"

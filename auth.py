@@ -1,11 +1,13 @@
 import threading
+
+import settings
 from basebot import BaseCommand, BaseBotPlugin, BaseTrigger
+
 
 class BaseAuth(object):
     def __init__(self, bot, nick):
         self.nick = nick
         self.auth = None
-        
         self.callbacks = []
         self._checked = False
         self.bot = bot
@@ -30,13 +32,12 @@ class BaseAuth(object):
                 cb['_lock'] = True
                 cb['fn'](self, *cb['args'])
                 del cb
-            
 
     def set_timeout(self):
         def _timedout():
             if self.timeout_flag:
                 # the bot timed out, netsplit or whatever, he is not responding
-                self.bot.error_logger.error("%s is not responding." % self.AUTH_BOT)
+                self.bot.error_logger.error("%s is not responding." % settings.AUTH_BOT)
                 self.timeout_flag = False
                 self.set_auth(None)
 

@@ -11,6 +11,7 @@ import settings
 
 from worldweatheronline import get_weather
 
+
 class MeteoCommand(BaseAuthCommand):
     NAME = "meteo"
     ALIASES = ["weather",]
@@ -25,11 +26,10 @@ class MeteoCommand(BaseAuthCommand):
         return self.ev.source.nick
 
     def get_response(self):
-        user = self.bot.auth_plugin.get_username(self.user) 
-        
+        user = self.bot.auth_plugin.get_username(self.user)
         location = self.plugin.meteo_db[user] or getattr(settings, 'DEFAULT_LOCATION', 'Paris,france')
         day = 'tomorrow'
-        
+
         for arg in self.options:
             if arg in ['current', 'today', 'tomorrow', 'weekend']:
                 day = arg

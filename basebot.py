@@ -1,3 +1,4 @@
+#! -*- coding: utf-8 -*-
 import logging
 import os
 import re
@@ -42,6 +43,9 @@ class BaseCommand(object):
 
     # if True, only the user(s) defined in settings.ADMIN can issue this command
     REQUIRE_ADMIN = False 
+
+    # Only authed users can use this command
+    REQUIRE_AUTH = False
 
     # if True, will not appear in the list of commands and stuff..
     IS_HIDDEN = False
@@ -204,12 +208,13 @@ class RestartCommand(BaseCommand):
 class ReconnectCommand(BaseCommand):
     NAME = u"reconnect"
     HELP = u"reconnect"
-    REQUIRE_ADMIN = True    
+    REQUIRE_ADMIN = True
 
     def process(self):
         self.bot.error_logger.info("Disconnecting because you asked so ...")
         self.bot.disconnect()
         self.bot._connect()
+
 
 class IssueCommand(BaseCommand):
     NAME = u"command"
@@ -224,6 +229,7 @@ class IssueCommand(BaseCommand):
 
     def process(self):
         self.bot.connection.send_raw(self.cmd_line)
+
 
 class Message():
     """
@@ -294,7 +300,7 @@ class BaseIrcBot(SingleServerIRCBot):
 
         try:
             if append_plugin_dir:
-                mod = __import__(getattr(settings, 'PLUGINS_DIR', '')+'.'+'.'.join(plugin.split('.')[:-1]), globals(), locals(), [plugin.split('.')[-1]])
+                mod = __import__(getattr(settings, 'PLUGINS_DIR', '') + '.' + '.'.join(plugin.split('.')[:-1]), globals(), locals(), [plugin.split('.')[-1]])
             else:
                 mod = __import__('.'.join(plugin.split('.')[:-1]), globals(), locals(), [plugin.split('.')[-1]])
         except ImportError, e:
@@ -314,7 +320,7 @@ class BaseIrcBot(SingleServerIRCBot):
         for trigger_class in plugin_instance.TRIGGERS:
             self.triggers.update({trigger_class.REGEXP : trigger_class})
             trigger_class.plugin = plugin_instance
-            
+
         self.plugins.append(plugin_instance)
         return plugin_instance
 
@@ -324,7 +330,7 @@ class BaseIrcBot(SingleServerIRCBot):
     def unload_plugin(self, plugin):
         self.error_logger.info('Unloading %s.', plugin)
 
-        if plugin in self.plugins: # or it could be the auth_plugin
+        if plugin in self.plugins:  # or it could be the auth_plugin
             self.plugins.remove(plugin)
         for command_class in plugin.COMMANDS:
             for name, command in self.commands.iteritems():
@@ -372,7 +378,7 @@ class BaseIrcBot(SingleServerIRCBot):
         """
         very basic implementation
         """
-        return (datetime.datetime.now()- self.last_sent).seconds < self.TIME_BETWEEN_MSGS
+        return (datetime.datetime.now() - self.last_sent).seconds < self.TIME_BETWEEN_MSGS
 
     def _check_flood_danger(self, msg):
         """
@@ -380,12 +386,13 @@ class BaseIrcBot(SingleServerIRCBot):
         so we can chain a lot of small commands, but larger responses trigger the timer
         """
         now = datetime.datetime.now()
+
         def _sum_bytes():
             return sum([s['bytes'] for s in self.last_sent if (now - s['time']).seconds <= self.FLOOD_TIMER])
 
         def _clean():
             for s in self.last_sent:
-                if (now-s['time']).seconds > self.FLOOD_TIMER:
+                if (now - s['time']).seconds > self.FLOOD_TIMER:
                     self.last_sent.remove(s)
 
         sb = _sum_bytes() + len(msg.text)
@@ -395,10 +402,10 @@ class BaseIrcBot(SingleServerIRCBot):
     #########################################################################
 
     def _send(self, msg):
-        while self._check_flood_danger(msg):                
+        while self._check_flood_danger(msg):
             time.sleep(self.TIME_BETWEEN_MSGS)
         self.last_sent.append({'time':datetime.datetime.now(), 'bytes': len(msg.text)})
-        self.msg_logger.info('%s - %s: %s' % (msg.target, settings.NICK, msg.text))
+        self.msg_logger.info(u'%s - %s: %s', msg.target, settings.NICK, msg.text)
         self.server.privmsg(msg.target, msg.text)
 
     def _msg_consumer(self):
@@ -418,6 +425,7 @@ class BaseIrcBot(SingleServerIRCBot):
             self._send(msg)
 
     def send(self, target, msg):
+        msg = msg.split("\n")
         if type(msg) in [list, set]:
             for m in msg:
                 self.msg_queue.put(Message(target, m))

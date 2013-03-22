@@ -1,11 +1,13 @@
 import json
-import urllib, urllib2
+import urllib
+import urllib2
 from datetime import date, timedelta
 
 import settings
 
 METEO_URL = u'http://free.worldweatheronline.com/feed/weather.ashx?q={q}&format=json&num_of_days=5&key={api_key}'
 API_KEY = settings.WORLDWEATHERONLINE_API_KEY
+
 
 def _get_data(url):
     request = urllib2.Request(url, None, {'Accept-encoding': 'utf8'})
@@ -15,6 +17,7 @@ def _get_data(url):
         return None
     result = response.read()
     return result
+
 
 def get_weather(location, qdate='tomorow'):
     """
@@ -60,16 +63,16 @@ def get_weather(location, qdate='tomorow'):
             elif qdate == "weekend":
                 # this will raise an IndexError from saturday to monday
                 # because the data only contains 5 days
-                index = 7-int(date.today().strftime('%w'))
+                index = 7 - int(date.today().strftime('%w'))
                 root = jd['weather'][index]
                 day = date.today() + timedelta(days=index)
-            else: # tomorrow by default
+            else:  # tomorrow by default
                 root = jd['weather'][1]
                 day = date.today() + timedelta(days=1)
-                
+
             weather = root['weatherDesc'][0]['value']
             precip = root['precipMM']
-            if qdate ==  "current":
+            if qdate == "current":
                 temp = root['temp_C']
             else:
                 temp = (root['tempMinC'], root['tempMaxC'])
@@ -78,4 +81,3 @@ def get_weather(location, qdate='tomorow'):
 
         except (ValueError, IndexError, KeyError), e:
             return None, e
-    

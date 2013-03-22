@@ -9,7 +9,7 @@ class CleverBotTrigger(BaseTrigger):
 
     def process(self):
         # TODO : should be asynchronous
-        self.bot.send(self.ev.target, self.bot.brain.Ask(self.match.group('msg').encode('ascii', 'replace')))
+        self.bot.send(self.ev.target, '%s: %s' % (self.ev.source.nick, self.bot.brain.Ask(self.match.group('msg').encode('ascii', 'replace'))))
 
 class CleverBotPlugin(BaseBotPlugin):
     COMMANDS = []
