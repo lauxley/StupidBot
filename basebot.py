@@ -452,7 +452,7 @@ class BaseIrcBot(SingleServerIRCBot):
 
         error_logger = logging.getLogger('errorlog')
         error_logger.setLevel(logging.INFO)
-        handler = handlers.RotatingFileHandler(os.path.join(settings.LOG_DIR, 'error.log'), maxBytes=1024*100, backupCount=5) # 100 kB
+        handler = handlers.RotatingFileHandler(os.path.join(settings.LOG_DIR, 'error.log'), maxBytes = 1024 * 100, backupCount = 5)  # 100 kB
         handler.setFormatter(formatter)
         error_logger.addHandler(handler)
         self.error_logger = error_logger
@@ -506,7 +506,7 @@ class BaseIrcBot(SingleServerIRCBot):
         """
         ensure that an user is not tring to excess flood the bot.
         we don't use the auth_plugin here, no need
-        
+
         for now, we consider that the user tries to flood the bot if he issue more than 2 commands
         in less than 2 seconds
 
@@ -515,7 +515,7 @@ class BaseIrcBot(SingleServerIRCBot):
         """
         now = datetime.datetime.now()
         if user not in self.command_timer_map:
-            self.command_timer_map[user] = { 'counter':0, 'time':now }
+            self.command_timer_map[user] = {'counter':0, 'time':now}
         ctm = self.command_timer_map[user]
 
         if (now - ctm['time']).seconds <= self.FLOOD_PROTECTION_TIMER:
@@ -524,14 +524,14 @@ class BaseIrcBot(SingleServerIRCBot):
                 return False
         else:
             # the last command was a long time ago : reset
-            ctm = { 'counter':1, 'time':now }
+            ctm = {'counter':1, 'time':now}
 
         return True
 
     def global_handler(self, serv, ev):
         if ev.type in ["pubmsg", "privnotice", "privmsg"]:
             self.log_msg(ev)
-            
+
             msg = ev.arguments[0]
             if msg[0] == self.COMMAND_PREFIX:
                 try:

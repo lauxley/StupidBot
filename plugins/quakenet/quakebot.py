@@ -1,19 +1,18 @@
-import imp
-
 import settings
 from basebot import BaseTrigger
-from auth import BaseIdentPlugin, BaseAuthPlugin, AuthCommand, BaseAuth
+from auth import BaseIdentPlugin, AuthCommand, BaseAuth
 
 
 class QuakenetAuth(BaseAuth):
     USER_INFO_CMD = u"WHOIS %s"
-    
+
 
 class QAuthTrigger(BaseTrigger):
     def handle(self):
         username = self.match.group('username')
         self.auth = self.bot.auth_plugin.get_auth(username)
-        
+        self.bot.auth_plugin.authentifying = False
+
 
 class NotAuthedTrigger(QAuthTrigger):
     REGEXP = r"User (?P<username>[^ ]+) is not authed\."
@@ -21,7 +20,7 @@ class NotAuthedTrigger(QAuthTrigger):
     def handle(self):
         super(NotAuthedTrigger, self).handle()
         self.auth.set_auth(None)
-        
+
 
 class AuthedTrigger(QAuthTrigger):
     REGEXP = r"\-Information for user (?P<username>[^ ]+) \(using account (?P<authname>[^ ]+)\)"
@@ -30,14 +29,14 @@ class AuthedTrigger(QAuthTrigger):
         super(AuthedTrigger, self).handle()
         authname = self.match.group('authname')
         self.auth.set_auth(authname)
-        
+
 
 class UserUnknownTrigger(QAuthTrigger):
     REGEXP = r"Can\'t find user (?P<username>[^ ]+)."
 
     def handle(self):
         super(UserUnknownTrigger, self).handle()
-        self.auth.set_auth(None) # to call the callbacks
+        self.auth.set_auth(None)  # to call the callbacks
         # self.auth is a ghost Auth instance, created only to reply
         # to the command
         if self.auth.nick in self.bot.auth_plugin.auths:
@@ -63,9 +62,15 @@ class QuakeNetPlugin(BaseIdentPlugin):
     AUTH_BOT = "Q"
     AUTH_CLASS = QuakenetAuth
 
-    COMMANDS = [ AuthCommand, ]
-    TRIGGERS = [ NotAuthedTrigger, AuthedTrigger, UserUnknownTrigger, BotNotAuthedTrigger, BotAuthedTrigger ]
-    
+    COMMANDS = [AuthCommand, ]
+    TRIGGERS = [NotAuthedTrigger, AuthedTrigger, UserUnknownTrigger, BotNotAuthedTrigger, BotAuthedTrigger]
+
+    def __init__(self, bot):
+        super(QuakeNetPlugin, self).__init__(bot)
+        self.authentifying = False
+
     def authentify(self):
-        self.bot.error_logger.info("Authentifying with Q ...")
-        self.bot.send(settings.AUTH_BOT, "AUTH %s %s" % (settings.AUTH_LOGIN, settings.AUTH_PASSWORD))
+        if not self.authentifying:
+            self.authentifying = True
+            self.bot.error_logger.info("Authentifying with Q ...")
+            self.bot.send(settings.AUTH_BOT, "AUTH %s %s" % (settings.AUTH_LOGIN, settings.AUTH_PASSWORD))
