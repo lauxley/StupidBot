@@ -12,6 +12,7 @@ from auth import BaseAuthCommand, BaseAuthTrigger
 
 from db import RandDb
 
+
 class RandCommand(BaseAuthCommand):
     NAME = "rand"
     HELP = u"""rand: Roll a number between 1 and 100, only one rand per day is taken into account in stats."""
@@ -24,7 +25,7 @@ class RandCommand(BaseAuthCommand):
     def get_response(self):
         roll = random.randint(1, 100)
         user = self.bot.auth_plugin.get_username(self.user)
-        valid = self.bot.rand_db.add_entry(datetime.datetime.now(), user, roll)
+        self.bot.rand_db.add_entry(datetime.datetime.now(), user, roll)
         msg = '%s rolled a %s.' % (user, str(roll))
         return msg
 
@@ -37,7 +38,7 @@ class TrajRandTrigger(BaseAuthTrigger):
     def handle(self):
         if self.ev.source.nick == 'Traj':
             user = self.get_user_from_line()
-            if not user: #damn Traj, need a special rule just for him
+            if not user:  # damn Traj, need a special rule just for him
                 user = 'Traj'
             self.bot.auth_plugin.get_user(user, self.process)
 
@@ -45,7 +46,7 @@ class TrajRandTrigger(BaseAuthTrigger):
         # TODO : check that the self.ev.source is really Traj (authed as such)
         roll = self.match.group('roll')
         user = self.bot.auth_plugin.get_username(user)
-        valid = self.bot.rand_db.add_entry(datetime.datetime.now(), user, roll)
+        self.bot.rand_db.add_entry(datetime.datetime.now(), user, roll)
 
 
 class StatsArgsMixin(object):
@@ -120,7 +121,7 @@ class LadderCommand(BaseCommand, StatsArgsMixin):
 
     def get_response(self):
         ranks = self.bot.rand_db.get_ladder(self.opt_rolls, self.opt_since)
-        return u' - '.join(['#%d %s %d (%sx)' % (r[0]+1, r[1][2], round(r[1][0], 3), r[1][1]) for r in enumerate(ranks)])
+        return u' - '.join(['#%d %s %d (%sx)' % (r[0] + 1, r[1][2], round(r[1][0], 3), r[1][1]) for r in enumerate(ranks)])
 
 
 class MergeCommand(BaseCommand):
@@ -133,9 +134,9 @@ class MergeCommand(BaseCommand):
             cmd, user1, users = self.ev.arguments[0].split(" ", 2)
             self.dst_user = user1
             self.src_users = users
-        except ValueError, e:
+        except ValueError:
             raise BadCommandLineException
-        
+
         return []
 
     def process(self):
@@ -164,14 +165,14 @@ class BackupCommand(BaseCommand):
     NAME = "backup"
     HELP = u"""backup: does exactly what it says."""
     REQUIRE_ADMIN = True
-    
+
     def process(self):
         self.bot.rand_db.backup()
         self.bot.send(self.get_target(), u"Done.")
 
 
 class RandPlugin(BaseBotPlugin):
-    COMMANDS = [ RandCommand, StatsCommand, AllStatsCommand, LadderCommand, MergeCommand, UsersListCommand, BackupCommand ]
+    COMMANDS = [RandCommand, StatsCommand, AllStatsCommand, LadderCommand, MergeCommand, UsersListCommand, BackupCommand]
     TRIGGERS = [TrajRandTrigger,]
 
     def __init__(self, bot):

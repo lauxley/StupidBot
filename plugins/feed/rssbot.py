@@ -73,12 +73,11 @@ class RssFeed(object):
 
         new_data = []
         try:
-            if 'updated_parsed' in data['feed']:
+            try:
                 updated = datetime.datetime.fromtimestamp(time.mktime(data['feed']['updated_parsed']))
-            else:
+            except TypeError:
                 upd = getattr(data,'updated',None) or getattr(data, 'published', None) or data['entries'][0]['published']
                 updated = datetime.datetime.strptime(upd[:24], '%a, %d %b %Y %H:%M:%S')
-
         except (IndexError, KeyError), e:
             self.plugin.bot.error_logger.error("Something went wrong trying to update the Rss Feed %s : %s" % (self.title, e))
         else:

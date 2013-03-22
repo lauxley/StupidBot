@@ -15,9 +15,10 @@ import os
 
 import settings
 
+
 class RandDb(object):
     db_file = "rand.db"
-    
+
     def _connect(self):
         self.conn = sqlite3.connect(self.db_file)
 
@@ -68,7 +69,7 @@ class RandDb(object):
     #         cur.execute("SELECT pk FROM users WHERE name = `?`;", [user,])
     #         u = cur.fetchone()
 
-    #     return u["pk"] 
+    #     return u["pk"]
 
     def sql_dt(self, dt):
         return datetime.datetime.strftime(dt, '%Y-%m-%d %H:%M')
@@ -82,7 +83,7 @@ class RandDb(object):
         return False
 
     def add_entry(self, dt, user, roll, valid=None):
-        if valid == None:
+        if valid is None:
             # test the existence of a roll
             valid = not self.already_rolled(dt, user)
         # userpk = self.get_or_create_user(user)
@@ -96,37 +97,36 @@ class RandDb(object):
         cur.execute("DELETE FROM rolls;")
         self.conn.commit()
 
-
     def get_stats(self, user, dt, allrolls=False):
         cur = self.conn.cursor()
         if not dt:
-            dt = datetime.datetime(2000, 1, 1) # ugly
+            dt = datetime.datetime(2000, 1, 1)  # ugly
         sql = "SELECT AVG(value) as a, COUNT(*) as c, MIN(value) as min, MAX(value) as max FROM rolls WHERE valid>=? AND roll_on >= ? GROUP BY user HAVING user = ?;"
         cur.execute(sql, [int(not allrolls), self.sql_dt(dt), user])
         r = cur.fetchone()
-        
+
         # we need another query to get the pos because sqlite sux
         if r:
-            sql = "SELECT COUNT(*) FROM (SELECT AVG(value) as a FROM rolls WHERE valid>=? AND roll_on>=? GROUP BY user HAVING a <= ?);"
+            sql = "SELECT COUNT(*) FROM (SELECT AVG(value) as a FROM rolls WHERE valid>=? AND roll_on>=? GROUP BY user HAVING a >= ?);"
             cur.execute(sql, [int(not allrolls), self.sql_dt(dt), int(r[0])])
             p = cur.fetchone()
-            
+
             return {'avg':r[0], 'count':r[1], 'min':r[2], 'max':r[3], 'pos':p[0]}
 
     def get_ladder(self, min_rolls, dt):
         cur = self.conn.cursor()
         if not dt:
-            dt = datetime.date(2000, 1, 1) # ugly
+            dt = datetime.date(2000, 1, 1)  # ugly
         if not min_rolls:
             min_rolls = 1
         sql = u"SELECT AVG(value) as a, COUNT(value) as c, user from rolls WHERE valid=1 AND roll_on >= ? GROUP BY user HAVING c >= ? ORDER BY a DESC LIMIT 10;"
         cur.execute(sql, (self.sql_dt(dt), min_rolls))
         return cur.fetchall()
-    
+
     def get_users(self, like=None):
         cur = self.conn.cursor()
         if like:
-            cur.execute("SELECT DISTINCT(user) FROM rolls WHERE user LIKE ?;", ('%'+like+'%',))
+            cur.execute("SELECT DISTINCT(user) FROM rolls WHERE user LIKE ?;", ('%' + like + '%',))
         else:
             cur.execute("SELECT DISTINCT(user) FROM rolls;")
         return [u[0] for u in cur.fetchall()]
