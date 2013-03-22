@@ -5,6 +5,7 @@ from xml.dom.minidom import parseString
 
 from basebot import BaseCommand, BaseBotPlugin
 
+
 class RegisterOnline(BaseCommand):
     NAME = "everegister"
 

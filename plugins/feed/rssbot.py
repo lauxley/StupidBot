@@ -65,6 +65,7 @@ class RssFeed(object):
     def fetch(self):
         # TODO : catch if feed changed and became invalid all of a sudden
         # or if an entry has been deleted !
+
         data = feedparser.parse(self.url)
 
         del self.entries
@@ -188,7 +189,7 @@ class FeedAddExclude(FeedAddFilter):
     def apply_filter(self, feed):
         feed.exclude = self.options[1]
         feed.update()
-        
+
 
 class FeedCommand(BaseCommand):
     """
@@ -201,7 +202,7 @@ class FeedCommand(BaseCommand):
     NAME = "feed"
     HELP = u"feed [FEED_TITLE [ENTRY_NUMBER|list]] - sends you a private message with the content of the given entry."
     TARGET = "source"
-    
+
     def get_last_feed(self):
         most_recent = self.plugin.feeds[0]
         for feed in self.plugin.feeds:
@@ -227,7 +228,7 @@ class FeedCommand(BaseCommand):
     def get_response(self):
         if not self.plugin.feeds:
             return u'No rss feed added yet.'
-        
+
         return self.feed.tell_more(self.feed.entries[self.entryn])
 
 
@@ -238,11 +239,11 @@ class RssPlugin(BaseBotPlugin):
 
     db_file = 'feeds.db'
 
-    FETCH_TIME = getattr(settings, 'FEED_FETCH_TIME', 2) # in minutes
-    MAX_ENTRIES = getattr(settings, 'FEED_MAX_ENTRIES', 5) # maximum entries to display when fetching a feed
+    FETCH_TIME = getattr(settings, 'FEED_FETCH_TIME', 2)  # in minutes
+    MAX_ENTRIES = getattr(settings, 'FEED_MAX_ENTRIES', 5)  # maximum entries to display when fetching a feed
 
-    COMMANDS = [ AddFeedCommand, FeedListCommand, FeedRemoveCommand, FeedCommand, FeedAddFilter, FeedAddExclude ]
- 
+    COMMANDS = [AddFeedCommand, FeedListCommand, FeedRemoveCommand, FeedCommand, FeedAddFilter, FeedAddExclude]
+
     def __init__(self, bot):
         super(RssPlugin, self).__init__(bot)
 
@@ -250,17 +251,17 @@ class RssPlugin(BaseBotPlugin):
 
         # initialize the loop to fetch the feeds
         if not os.path.isfile(self.db_file):
-            self.feed_conn = sqlite3.connect(self.db_file, check_same_thread = False)
+            self.feed_conn = sqlite3.connect(self.db_file, check_same_thread=False)
             self._make_db()
             return
-        self.feed_conn = sqlite3.connect(self.db_file, check_same_thread = False)
+        self.feed_conn = sqlite3.connect(self.db_file, check_same_thread=False)
 
         sql = "SELECT ROWID, url, last_updated, last_entry, channel, title, filter, exclude FROM feeds"
         cur = self.feed_conn.cursor()
         for row in cur.execute(sql):
             self.feeds.append(RssFeed(self, row))
         cur.close()
-                
+
     def close(self):
         self.feed_conn.close()
 
@@ -288,10 +289,10 @@ class RssPlugin(BaseBotPlugin):
         for feed in self.feeds:
             if feed.url == feed_url and feed.channel == chan:
                 return feed, created
- 
+
         try:
             data = feedparser.parse(feed_url)
-            
+
             last_entry = data['entries'][0]['id']
 
             if 'updated_parsed' in data['feed']:
@@ -299,14 +300,14 @@ class RssPlugin(BaseBotPlugin):
             else:
                 upd = getattr(data,'updated',None) or getattr(data, 'published', None) or data['entries'][0]['published']
                 last_updated = datetime.datetime.strptime(upd[:24], '%a, %d %b %Y %H:%M:%S')
-            
+
             feed = RssFeed(self, self._create_feed(feed_url, feed_title, last_entry, dt_to_sql(last_updated), chan))
             feed.entries = data['entries']
             created = True
         except (IndexError, KeyError), e:
             self.bot.error_logger.warning('Invalid feed : %s' % e)
             return None, False
-        
+
         self.feeds.append(feed)
         return feed, created
 
@@ -324,21 +325,17 @@ class RssPlugin(BaseBotPlugin):
         # polling
         while(True):
             for feed in self.feeds:
-                # TODO : this is sub-obtimal, 
+                # TODO : this is sub-obtimal,
                 # if we have the same feed in different channels, it will be fetched as many times
-                new_data = feed.fetch() 
+                new_data = feed.fetch()
                 if len(new_data) > self.MAX_ENTRIES:
                     self.bot.send(feed.channel, u"%d new entries for %s ! access them with !feed %s X" % (len(new_data), feed.title, feed.title))
                 else:
                     for n, entry in enumerate(new_data[:self.MAX_ENTRIES]):
                         self.bot.send(feed.channel, feed.tell(entry))
-
-            time.sleep(self.FETCH_TIME*60)
+            time.sleep(self.FETCH_TIME * 60)
 
     def fetch_feeds(self):
         thr = Thread(target=self._fetch)
         thr.daemon = True
         thr.start()
-
-
-

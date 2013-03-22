@@ -7,13 +7,14 @@ import signal
 import time
 from threading import Thread
 from Queue import Queue
-import datetime, time
+import datetime
 from logging import handlers
 
 from irc.client import DecodingLineBuffer
 from irc.bot import SingleServerIRCBot
 
 import settings
+
 
 class CompliantDecodingLineBuffer(DecodingLineBuffer):
     errors = 'replace'
@@ -42,7 +43,7 @@ class BaseCommand(object):
     ALIASES = []
 
     # if True, only the user(s) defined in settings.ADMIN can issue this command
-    REQUIRE_ADMIN = False 
+    REQUIRE_ADMIN = False
 
     # Only authed users can use this command
     REQUIRE_AUTH = False
@@ -53,7 +54,7 @@ class BaseCommand(object):
     # will be printed when someone issue a !help <COMMAND>
     HELP = u"Sorry, no help for this command yet !"
 
-    # possible values of TARGET: 
+    # possible values of TARGET:
     # * source : the response will be send directly to the user issuing the command in a private message
     # * target : will respond to the same channel were the command was issued
     TARGET = "target"
@@ -61,17 +62,22 @@ class BaseCommand(object):
     def __init__(self, bot, ev):
         self.bot = bot
         self.ev = ev
-        
+
         self.split_options(ev.arguments)
-        self.parse_options() # the exception will be catched by the main loop
-        # except BadCommandLineException, e:
+        self.parse_options()  # the exception will be catched by the main loop
 
         self.bot.error_logger.info('Command issued by %s : %s' % (ev.source, self.NAME))
 
     def split_options(self, arguments):
+        # handling named arguments (foo=bar)
+        reg = r'(?P<opt>\w+)=(?P<val>\w+)'
+        self.args = dict(re.findall(reg, arguments[0]))
+        cmd = re.sub(reg, u'', arguments[0])  # stripping out named arguments
+
+        # context arguments (called options)
         try:
-            self.options = arguments[0].strip().split(" ")[1:]
-        except IndexError, e:
+            self.options = cmd.strip().split(" ")[1:]
+        except IndexError:
             self.options = []
 
     def parse_options(self):
@@ -86,13 +92,13 @@ class BaseCommand(object):
         It should return a string containing the response of the bot to the issued command
         """
         return u""
-    
+
     def process(self, *args, **kwargs):
         msg = self.get_response()
         self.bot.send(self.get_target(), msg)
 
     def get_target(self):
-        if self.TARGET == "target":    
+        if self.TARGET == "target":
             if self.ev.type == "privmsg":
                 target = self.ev.source.nick
             else:
@@ -102,7 +108,7 @@ class BaseCommand(object):
         else:
             self.bot.error_logger.error("Invalid command target %s for command %s !" % (self.TARGET, self.__name__))
             target = None
-        return target        
+        return target
 
     def get_needs_to_be_admin(self):
         return u"Sorry you need to be admin to issue this command."
@@ -464,10 +470,6 @@ class BaseIrcBot(SingleServerIRCBot):
 
         for chan in settings.START_CHANNELS:
             self.connection.join(chan)
-
-        for plugin in self.plugins:
-            if hasattr(plugin, 'on_welcome'):
-                getattr(plugin, 'on_welcome')(serv, ev)
 
     def _on_join(self, serv, ev):
         super(BaseIrcBot, self)._on_join(serv, ev)

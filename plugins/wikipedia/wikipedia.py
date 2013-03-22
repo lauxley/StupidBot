@@ -11,17 +11,17 @@ import settings
 class DefineCommand(BaseCommand):
     NAME = "define"
     ALIASES = ["d"]
+    HELP = u"define [lang=CODE] WORD|EXPRESSION - fetch the wikipedia api to give you the definition of the given word/expression."
 
     WIKI_SEARCH_URL = u"http://%s.wikipedia.org/w/api.php"
 
     def split_options(self, arguments):
-        self.lang = getattr(settings, 'DEFAULT_LANG', 'en')
-        # TODO : be able to change language with something like lang=de
-        self.query = u" ".join(arguments[0].strip().split(" ")[1:])
+        super(DefineCommand, self).split_options(arguments)
+        self.lang = self.args.get(u'lang', getattr(settings, 'DEFAULT_LANG', 'en'))
+        self.query = u" ".join(self.options[1:])
 
     def get_response(self):
         params = {'action':'opensearch', 'search': self.query, 'format':'xml', 'limit': 1}
-        # TODO : there is probably a cleaner way to add the query string
         request = urllib2.Request(self.WIKI_SEARCH_URL % self.lang + '?' + urllib.urlencode(params))
         try:
             response = urllib2.urlopen(request)
