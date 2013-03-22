@@ -65,8 +65,8 @@ class RssFeed(object):
     def fetch(self):
         # TODO : catch if feed changed and became invalid all of a sudden
         # or if an entry has been deleted !
-
-        data = feedparser.parse(self.url)
+        print 'fetching %s.' % self.title
+        data = feedparser.parse(self.url, request_headers={'Cache-control': 'max-age=%d' % self.plugin.FETCH_TIME * 60})
 
         del self.entries
         self.entries = data['entries']
@@ -154,8 +154,8 @@ class FeedRemoveCommand(BaseCommand):
 
 class FeedAddFilter(BaseCommand):
     """
-    Add a filter to a specific feed on a specific channel, 
-    only 
+    Add a filter to a specific feed on a specific channel,
+    only
     """
     NAME = u"feedfilter"
     REQUIRE_ADMIN = True
@@ -193,9 +193,9 @@ class FeedAddExclude(FeedAddFilter):
 
 class FeedCommand(BaseCommand):
     """
-    TODO: 
+    TODO:
     * log old entries
-    * & pass a date to !feed 
+    * & pass a date to !feed
     * search interface (for example title=foobar) with grep ?!
     """
 

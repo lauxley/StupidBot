@@ -82,7 +82,7 @@ class MeteoDB(object):
             cur.execute("INSERT INTO meteo (user, location) VALUES (?, ?);", [key, value])
         self.conn.commit()
         cur.close()
-        
+
     def _make_db(self):
         sql = """CREATE TABLE meteo (
                             user VARCHAR(50) NOT NULL,
@@ -99,8 +99,8 @@ class MeteoDB(object):
 
 
 class MeteoPlugin(BaseBotPlugin):
-    COMMANDS = [ MeteoCommand ]
-    
+    COMMANDS = [MeteoCommand,]
+
     def __init__(self, bot):
         super(MeteoPlugin, self).__init__(bot)
         # used to remember each user choice

@@ -67,7 +67,7 @@ class BaseAuthCommand(BaseCommand):
     it checks the auth_plugin to get the auth of the user issuing the command,
     as this can take some time, the result is asynchronous
     """
-        
+
     def get_user_from_line(self):
         """
         override this if the default behavior is not what you want
@@ -134,7 +134,7 @@ class BaseAuthTrigger(BaseTrigger):
     def handle(self):
         # this method is just here to be homogenous with BaseCommand
         self.bot.auth_plugin.get_user(self.get_user_from_line(), self.process)
-    
+
     def process(self, *args):
         pass
 
@@ -168,7 +168,7 @@ class BaseIdentPlugin(BaseAuthPlugin):
 
     AUTH_BOT = ""  # the name of the bot used to identify
     AUTH_CLASS = BaseAuth
-    AUTH_BOT_TIMEOUT = 5 # in seconds
+    AUTH_BOT_TIMEOUT = 5  # in seconds
 
     def __init__(self, bot):
         super(BaseIdentPlugin, self).__init__(bot)
@@ -184,7 +184,7 @@ class BaseIdentPlugin(BaseAuthPlugin):
 
     def get_user(self, user, cb, *args, **kwargs):
         auth = self.get_auth(user)
-        if 'force_check' in kwargs and kwargs['force_check'] == True and not auth.is_checking:
+        if 'force_check' in kwargs and kwargs['force_check'] and not auth.is_checking:
             auth.check_authed()
 
         auth.add_callback(cb, args)

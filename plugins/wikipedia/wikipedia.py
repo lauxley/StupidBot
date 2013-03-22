@@ -18,7 +18,7 @@ class DefineCommand(BaseCommand):
     def split_options(self, arguments):
         super(DefineCommand, self).split_options(arguments)
         self.lang = self.args.get(u'lang', getattr(settings, 'DEFAULT_LANG', 'en'))
-        self.query = u" ".join(self.options[1:])
+        self.query = u" ".join(self.options)
 
     def get_response(self):
         params = {'action':'opensearch', 'search': self.query, 'format':'xml', 'limit': 1}

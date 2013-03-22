@@ -116,12 +116,12 @@ class BaseCommand(object):
     def _is_admin(self, user):
         return user in settings.ADMINS
 
-    def check_admin(self, user, *args):        
+    def check_admin(self, user, *args):
         if self._is_admin(self.bot.auth_plugin.get_username(user)):
             self.process(*args)
         else:
             self.bot.send(self.ev.target, self.get_needs_to_be_admin())
-        
+
     def handle(self):
         if self.REQUIRE_ADMIN:
             self.bot.auth_plugin.get_user(self.ev.source.nick, self.check_admin)
@@ -173,7 +173,7 @@ class HelpCommand(BaseCommand):
             cmd = self.options[0]
             try:
                 msg = self.bot.commands[cmd].HELP
-            except KeyError,e:
+            except KeyError:
                 msg = u"No such command."
         else:
             msg = u"Here are the currently implemented commands : %s" % ', '.join(['!%s' % k for k in self.bot.commands.keys() if not getattr(self.bot.commands[k], 'HIDDEN', False)])
@@ -243,17 +243,17 @@ class Message():
     """
     def __init__(self, target, text):
         self.target = target
-        self.text = text 
+        self.text = text
 
 
 class BaseIrcBot(SingleServerIRCBot):
     COMMAND_PREFIX = '!'
-    
+
     # its 512 but we need some space for the command arguments, might depend on irc server
-    MAX_MSG_LEN = getattr(settings, 'MAX_MSG_LEN', 450) 
+    MAX_MSG_LEN = getattr(settings, 'MAX_MSG_LEN', 450)
 
     # The time in seconds that the bot will wait before sending 2 consecutive messages
-    TIME_BETWEEN_MSGS = getattr(settings, 'TIME_BETWEEN_MSGS', 1) 
+    TIME_BETWEEN_MSGS = getattr(settings, 'TIME_BETWEEN_MSGS', 1)
 
     # because there is no way to know how the server implement the flood protection
     # and thus we can't make a more reliable rule to avoid it
@@ -274,7 +274,7 @@ class BaseIrcBot(SingleServerIRCBot):
         # self.last_sent = datetime.datetime.now()
         self.last_sent = []
 
-        self.msg_queue = Queue() # message queue
+        self.msg_queue = Queue()  # message queue
         self._start_msg_consumer()
 
         # the map to remember the last user's command time
@@ -311,7 +311,7 @@ class BaseIrcBot(SingleServerIRCBot):
                 mod = __import__('.'.join(plugin.split('.')[:-1]), globals(), locals(), [plugin.split('.')[-1]])
         except ImportError, e:
             self.error_logger.error("Can not import Plugin %s : %s" % (plugin, e))
-            return 
+            return
 
         plugin_instance = getattr(mod, plugin.split('.')[-1])(self)
 
@@ -457,7 +457,7 @@ class BaseIrcBot(SingleServerIRCBot):
 
         error_logger = logging.getLogger('errorlog')
         error_logger.setLevel(logging.INFO)
-        handler = handlers.RotatingFileHandler(os.path.join(settings.LOG_DIR, 'error.log'), maxBytes = 1024 * 100, backupCount = 5)  # 100 kB
+        handler = handlers.RotatingFileHandler(os.path.join(settings.LOG_DIR, 'error.log'), maxBytes=1024 * 100, backupCount=5)  # 100 kB
         handler.setFormatter(formatter)
         error_logger.addHandler(handler)
         self.error_logger = error_logger
