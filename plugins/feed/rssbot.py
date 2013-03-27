@@ -73,7 +73,11 @@ class RssFeed(object):
         new_data = []
         try:
             try:
-                updated = datetime.datetime.fromtimestamp(time.mktime(data['feed']['updated_parsed']))
+                if 'updated_parsed' in data['feed']:  # if possible we use the feed date, because the first entry date could change if the entry is removed
+                    upd = data['feed']['updated_parsed']
+                else:
+                    upd = data['entries'][0]['updated_parsed']
+                updated = datetime.datetime.fromtimestamp(time.mktime(upd))
             except TypeError:
                 upd = getattr(data,'updated',None) or getattr(data, 'published', None) or data['entries'][0]['published']
                 updated = datetime.datetime.strptime(upd[:24], '%a, %d %b %Y %H:%M:%S')
