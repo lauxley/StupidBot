@@ -62,6 +62,12 @@ class RssFeed(object):
         cur.execute(sql, [self.last_entry, dt_to_sql(self.updated), self.filter, self.exclude, self.id])
         self.plugin.feed_conn.commit()
 
+    def delete(self):
+        cur = self.plugin.feed_conn.cursor()
+        sql = "DELETE FROM feeds WHERE ROWID=?"
+        cur.execute(sql, [self.id,])
+        self.plugin.feed_conn.commit()
+
     def fetch(self):
         # TODO : catch if feed changed and became invalid all of a sudden
         # or if an entry has been deleted !
@@ -149,6 +155,7 @@ class FeedRemoveCommand(BaseCommand):
         chan = self.ev.target
         for feed in self.plugin.feeds:
             if feed.title == self.options[0] and feed.channel == chan:
+                feed.delete()
                 self.plugin.feeds.remove(feed)
                 return "Done. %s won't bother you anymore." % feed.title
         return "Couldn't delete feed %s." % self.options[0]
