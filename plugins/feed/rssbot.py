@@ -65,7 +65,6 @@ class RssFeed(object):
     def fetch(self):
         # TODO : catch if feed changed and became invalid all of a sudden
         # or if an entry has been deleted !
-        print 'fetching %s.' % self.title
         data = feedparser.parse(self.url, request_headers={'Cache-control': 'max-age=%d' % self.plugin.FETCH_TIME * 60})
 
         del self.entries

@@ -15,18 +15,44 @@ from db import RandDb
 
 class RandCommand(BaseAuthCommand):
     NAME = "rand"
-    HELP = u"""rand: Roll a number between 1 and 100, only one rand per day is taken into account in stats."""
+    HELP = u"""rand [[MIN] MAX|El1 El2 El3 ...]: Roll a number between MIN (default 1) and MAX (default 100), only one rand between 1 and 100 per day is taken into account in stats. Or randomize an element in the given list."""
     ALIASES = ['r',]
 
+    DEFAULT_MIN = 1
+    DEFAULT_MAX = 100
+
+    def get_user_from_line(self):
+        return self.ev.source.nick
+
     def parse_options(self):
+        self.list = False
+        self.min = self.DEFAULT_MIN
+        self.max = self.DEFAULT_MAX
         if len(self.options):
-            raise BadCommandLineException
+            if len(self.options) == 1:
+                try:
+                    self.max = int(self.options[0])
+                except ValueError:
+                    raise BadCommandLineException
+            elif len(self.options) == 2:
+                try:
+                    self.min = int(self.options[0])
+                    self.max = int(self.options[1])
+                except ValueError:
+                    self.list = True
+            else:
+                self.list = True
 
     def get_response(self):
-        roll = random.randint(1, 100)
-        user = self.bot.auth_plugin.get_username(self.user)
-        self.bot.rand_db.add_entry(datetime.datetime.now(), user, roll)
-        msg = '%s rolled a %s.' % (user, str(roll))
+        if self.list:
+            result = self.options[random.randint(0, len(self.options) - 1)]
+            msg = 'The result is : %s.' % result
+        else:
+            roll = random.randint(self.min, self.max)
+            user = self.bot.auth_plugin.get_username(self.user)
+            if self.min == self.DEFAULT_MIN and self.max == self.DEFAULT_MAX:
+                self.bot.rand_db.add_entry(datetime.datetime.now(), user, roll)
+            msg = '%s rolled a %s (%s-%s).' % (user, str(roll), self.min, self.max)
         return msg
 
 
