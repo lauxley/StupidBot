@@ -6,8 +6,6 @@ from auth import BaseAuthTrigger
 
 
 class TrajRandTrigger(BaseAuthTrigger):
-    # TODO : move this to NotABot.py as it is very specific
-
     REGEXP = r'(?P<username>[^ ]+)? ?obtient un (?P<roll>\d{1,3}) \(1-100\)'
 
     def handle(self):
@@ -23,7 +21,7 @@ class TrajRandTrigger(BaseAuthTrigger):
     def process(self, user, *args):
         roll = self.match.group('roll')
         user = self.bot.auth_plugin.get_username(user)
-        self.bot.rand_db.add_entry(datetime.datetime.now(), user, roll)
+        self.bot.rand_db.add_entry(datetime.datetime.now(), user, roll, self.ev.target)
 
 
 class StupidIrcBot(BaseIrcBot):

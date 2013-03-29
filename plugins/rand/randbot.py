@@ -51,7 +51,7 @@ class RandCommand(BaseAuthCommand):
             roll = random.randint(self.min, self.max)
             user = self.bot.auth_plugin.get_username(self.user)
             if self.min == self.DEFAULT_MIN and self.max == self.DEFAULT_MAX:
-                self.bot.rand_db.add_entry(datetime.datetime.now(), user, roll)
+                self.bot.rand_db.add_entry(datetime.datetime.now(), user, roll, self.ev.target)
             msg = '%s rolled a %s (%s-%s).' % (user, str(roll), self.min, self.max)
         return msg
 
@@ -100,7 +100,7 @@ class StatsCommand(BaseAuthCommand, StatsArgsMixin):
         return self.opt_user or self.ev.source.nick
 
     def get_stats(self):
-        return self.bot.rand_db.get_stats(self.bot.auth_plugin.get_username(self.user), self.opt_since, allrolls=False)
+        return self.bot.rand_db.get_stats(self.bot.auth_plugin.get_username(self.user), self.opt_since, self.ev.target, allrolls=False)
 
     def get_response(self):
         r = self.get_stats()
@@ -116,7 +116,7 @@ class AllStatsCommand(StatsCommand):
     HELP = u"""allstats [player1] [today|week|month|year|DDMMYYYY]: display the whole rand stats of a given user including invalid rands."""
 
     def get_stats(self):
-        return self.bot.rand_db.get_stats(self.bot.auth_plugin.get_username(self.user), self.opt_since, allrolls=True)
+        return self.bot.rand_db.get_stats(self.bot.auth_plugin.get_username(self.user), self.opt_since, self.ev.target, allrolls=True)
 
 
 class LadderCommand(BaseCommand, StatsArgsMixin):
@@ -127,7 +127,7 @@ class LadderCommand(BaseCommand, StatsArgsMixin):
         self._get_stats_args()
 
     def get_response(self):
-        ranks = self.bot.rand_db.get_ladder(self.opt_rolls, self.opt_since)
+        ranks = self.bot.rand_db.get_ladder(self.opt_rolls, self.opt_since, self.ev.target)
         return u' - '.join(['#%d %s %d (%sx)' % (r[0] + 1, r[1][2], round(r[1][0], 3), r[1][1]) for r in enumerate(ranks)])
 
 
@@ -161,7 +161,7 @@ class UsersListCommand(BaseCommand):
             like = self.options[0]
         except IndexError:
             like = None
-        users = self.bot.rand_db.get_users(like)
+        users = self.bot.rand_db.get_users(self.ev.target, like)
         if users:
             return u', '.join(users)
         else:

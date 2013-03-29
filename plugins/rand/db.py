@@ -1,3 +1,4 @@
+
 """
 $ sudo apt-get install sqlite3
 $ sqlite3 rand.db
@@ -42,7 +43,7 @@ class RandDb(object):
     def insert(self, table, values):
         cur = self.conn.cursor()
         if table == 'rolls':
-            cols = '`user`, `roll_on`, `value`, `valid`'
+            cols = '`user`, `roll_on`, `value`, `chan`, `valid`'
         else:
             return
         sql = "INSERT INTO `%s` (%s) VALUES (%s);" % (table, cols, ','.join(['?' for v in values]))
@@ -54,6 +55,7 @@ class RandDb(object):
                             user VARCHAR(50) NOT NULL,
                             roll_on DATETIME NOT NULL,
                             value SMALLINT NOT NULL,
+                            chan VARCHAR(64),
                             valid TINYINT);"""
         cur = self.conn.cursor()
         cur.execute(sql)
@@ -74,20 +76,20 @@ class RandDb(object):
     def sql_dt(self, dt):
         return datetime.datetime.strftime(dt, '%Y-%m-%d %H:%M')
 
-    def already_rolled(self, dt, user):
+    def already_rolled(self, dt, user, chan):
         cur = self.conn.cursor()
-        sql = "SELECT * FROM rolls WHERE date(roll_on)=date(?) AND user=? LIMIT 1;"
-        cur.execute(sql, [self.sql_dt(dt), user])
+        sql = "SELECT * FROM rolls WHERE date(roll_on)=date(?) AND user=? AND chan=? LIMIT 1;"
+        cur.execute(sql, [self.sql_dt(dt), user, chan])
         if cur.fetchone():
             return True
         return False
 
-    def add_entry(self, dt, user, roll, valid=None):
+    def add_entry(self, dt, user, roll, chan, valid=None):
         if valid is None:
             # test the existence of a roll
-            valid = not self.already_rolled(dt, user)
+            valid = not self.already_rolled(dt, user, chan)
         # userpk = self.get_or_create_user(user)
-        self.insert('rolls', [user, dt, roll, valid])
+        self.insert('rolls', [user, dt, roll, chan, valid])
         return valid
 
     def flush(self):
@@ -97,38 +99,38 @@ class RandDb(object):
         cur.execute("DELETE FROM rolls;")
         self.conn.commit()
 
-    def get_stats(self, user, dt, allrolls=False):
+    def get_stats(self, user, dt, chan, allrolls=False):
         cur = self.conn.cursor()
         if not dt:
             dt = datetime.datetime(2000, 1, 1)  # ugly
-        sql = "SELECT AVG(value) as a, COUNT(*) as c, MIN(value) as min, MAX(value) as max FROM rolls WHERE valid>=? AND roll_on >= ? GROUP BY user HAVING user = ?;"
-        cur.execute(sql, [int(not allrolls), self.sql_dt(dt), user])
+        sql = "SELECT AVG(value) as a, COUNT(*) as c, MIN(value) as min, MAX(value) as max FROM rolls WHERE valid>=? AND roll_on >= ? AND chan=? GROUP BY user HAVING user = ?;"
+        cur.execute(sql, [int(not allrolls), self.sql_dt(dt), chan, user])
         r = cur.fetchone()
 
         # we need another query to get the pos because sqlite sux
         if r:
-            sql = "SELECT COUNT(*) FROM (SELECT AVG(value) as a FROM rolls WHERE valid>=? AND roll_on>=? GROUP BY user HAVING a >= ?);"
-            cur.execute(sql, [int(not allrolls), self.sql_dt(dt), int(r[0])])
+            sql = "SELECT COUNT(*) FROM (SELECT AVG(value) as a FROM rolls WHERE valid>=? AND roll_on>=? AND chan=? GROUP BY user HAVING a >= ?);"
+            cur.execute(sql, [int(not allrolls), self.sql_dt(dt), chan, int(r[0])])
             p = cur.fetchone()
 
             return {'avg':r[0], 'count':r[1], 'min':r[2], 'max':r[3], 'pos':p[0]}
 
-    def get_ladder(self, min_rolls, dt):
+    def get_ladder(self, min_rolls, dt, chan):
         cur = self.conn.cursor()
         if not dt:
             dt = datetime.date(2000, 1, 1)  # ugly
         if not min_rolls:
             min_rolls = 1
-        sql = u"SELECT AVG(value) as a, COUNT(value) as c, user from rolls WHERE valid=1 AND roll_on >= ? GROUP BY user HAVING c >= ? ORDER BY a DESC LIMIT 10;"
-        cur.execute(sql, (self.sql_dt(dt), min_rolls))
+        sql = u"SELECT AVG(value) as a, COUNT(value) as c, user from rolls WHERE valid=1 AND roll_on >= ? AND chan=? GROUP BY user HAVING c >= ? ORDER BY a DESC LIMIT 10;"
+        cur.execute(sql, (self.sql_dt(dt), chan, min_rolls))
         return cur.fetchall()
 
-    def get_users(self, like=None):
+    def get_users(self, chan, like=None):
         cur = self.conn.cursor()
         if like:
-            cur.execute("SELECT DISTINCT(user) FROM rolls WHERE user LIKE ?;", ('%' + like + '%',))
+            cur.execute("SELECT DISTINCT(user) FROM rolls WHERE chan=? AND user LIKE ?;", [chan, '%' + like + '%'])
         else:
-            cur.execute("SELECT DISTINCT(user) FROM rolls;")
+            cur.execute("SELECT DISTINCT(user) FROM rolls WHERE chan=?;", [chan,])
         return [u[0] for u in cur.fetchall()]
 
     def merge(self, user1, *users):
