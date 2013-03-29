@@ -8,7 +8,7 @@ import datetime
 import re
 
 from basebot import BaseCommand, BaseBotPlugin, BadCommandLineException
-from auth import BaseAuthCommand, BaseAuthTrigger
+from auth import BaseAuthCommand
 
 from db import RandDb
 
@@ -54,25 +54,6 @@ class RandCommand(BaseAuthCommand):
                 self.bot.rand_db.add_entry(datetime.datetime.now(), user, roll)
             msg = '%s rolled a %s (%s-%s).' % (user, str(roll), self.min, self.max)
         return msg
-
-
-class TrajRandTrigger(BaseAuthTrigger):
-    # TODO : move this to NotABot.py as it is very specific
-
-    REGEXP = r'(?P<username>[^ ]+)? ?obtient un (?P<roll>\d{1,3}) \(1-100\)'
-
-    def handle(self):
-        if self.ev.source.nick == 'Traj':
-            user = self.get_user_from_line()
-            if not user:  # damn Traj, need a special rule just for him
-                user = 'Traj'
-            self.bot.auth_plugin.get_user(user, self.process)
-
-    def process(self, user, *args):
-        # TODO : check that the self.ev.source is really Traj (authed as such)
-        roll = self.match.group('roll')
-        user = self.bot.auth_plugin.get_username(user)
-        self.bot.rand_db.add_entry(datetime.datetime.now(), user, roll)
 
 
 class StatsArgsMixin(object):
@@ -199,7 +180,6 @@ class BackupCommand(BaseCommand):
 
 class RandPlugin(BaseBotPlugin):
     COMMANDS = [RandCommand, StatsCommand, AllStatsCommand, LadderCommand, MergeCommand, UsersListCommand, BackupCommand]
-    TRIGGERS = [TrajRandTrigger,]
 
     def __init__(self, bot):
         super(RandPlugin, self).__init__(bot)

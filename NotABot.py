@@ -1,16 +1,37 @@
 #! -*- coding: utf-8 -*-
-import sys
+import datetime
 
-import settings
+from basebot import BaseIrcBot, HelpCommand, VersionCommand, PingCommand, ReconnectCommand, IssueCommand  # RestartCommand,
+from auth import BaseAuthTrigger
 
-from basebot import BaseIrcBot, BaseCommand, HelpCommand, VersionCommand, PingCommand, ReconnectCommand, RestartCommand, IssueCommand
+
+class TrajRandTrigger(BaseAuthTrigger):
+    # TODO : move this to NotABot.py as it is very specific
+
+    REGEXP = r'(?P<username>[^ ]+)? ?obtient un (?P<roll>\d{1,3}) \(1-100\)'
+
+    def handle(self):
+        self.bot.auth_plugin.get_user(self.ev.source.nick, self.handle2)
+
+    def handle2(self, source):
+        if source.auth == '`Xrs`Jeeju`':
+            user = self.get_user_from_line()
+            if not user:  # damn Traj, need a special rule just for him
+                user = 'Traj'
+            self.bot.auth_plugin.get_user(user, self.process)
+
+    def process(self, user, *args):
+        roll = self.match.group('roll')
+        user = self.bot.auth_plugin.get_username(user)
+        self.bot.rand_db.add_entry(datetime.datetime.now(), user, roll)
+
 
 class StupidIrcBot(BaseIrcBot):
     VERSION = u'0.9.5'
 
-    COMMANDS = [HelpCommand, VersionCommand, PingCommand, ReconnectCommand, IssueCommand] #RestartCommand
-    TRIGGERS = []
-        
+    COMMANDS = [HelpCommand, VersionCommand, PingCommand, ReconnectCommand, IssueCommand]  # RestartCommand
+    TRIGGERS = [TrajRandTrigger,]
+
 
 if __name__ == '__main__':
     bot = StupidIrcBot()

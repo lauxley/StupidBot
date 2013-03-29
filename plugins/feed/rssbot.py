@@ -69,8 +69,6 @@ class RssFeed(object):
         self.plugin.feed_conn.commit()
 
     def fetch(self):
-        # TODO : catch if feed changed and became invalid all of a sudden
-        # or if an entry has been deleted !
         data = feedparser.parse(self.url, request_headers={'Cache-control': 'max-age=%d' % self.plugin.FETCH_TIME * 60})
 
         del self.entries
@@ -262,8 +260,8 @@ class RssPlugin(BaseBotPlugin):
         if not os.path.isfile(self.db_file):
             self.feed_conn = sqlite3.connect(self.db_file, check_same_thread=False)
             self._make_db()
-            return
-        self.feed_conn = sqlite3.connect(self.db_file, check_same_thread=False)
+        else:
+            self.feed_conn = sqlite3.connect(self.db_file, check_same_thread=False)
 
         sql = "SELECT ROWID, url, last_updated, last_entry, channel, title, filter, exclude FROM feeds"
         cur = self.feed_conn.cursor()
