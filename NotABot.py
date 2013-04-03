@@ -36,6 +36,7 @@ if __name__ == '__main__':
     try:
         bot.start()
     except Exception, e:
-        # TODO a stack trace could be helpfull
-        bot.error_logger.error('FATAL : %s', e)
+        import traceback
+        tb = traceback.format_exc()
+        bot.error_logger.error('FATAL : %s\n%s', e, tb)
         raise
