@@ -51,7 +51,7 @@ class RssFeed(object):
 
     def tell_more(self, entry):
         try:
-            return [entry.title, bleach.clean(entry.summary, tags=[], strip=True), entry.link]
+            return [entry.title, re.sub(r'\s+', ' ', bleach.clean(entry.summary, tags=[], strip=True)), entry.link]
         except (IndexError, AttributeError), e:
             self.plugin.bot.error_logger.error("Bad parameter to RssFeed.tell : %s" % e)
             return u'Bad parameters.'

@@ -25,7 +25,7 @@ class TrajRandTrigger(BaseAuthTrigger):
 
 
 class StupidIrcBot(BaseIrcBot):
-    VERSION = u'0.9.5'
+    VERSION = u'0.9.6'
 
     COMMANDS = [HelpCommand, VersionCommand, PingCommand, ReconnectCommand, IssueCommand]  # RestartCommand
     TRIGGERS = [TrajRandTrigger,]
@@ -36,5 +36,6 @@ if __name__ == '__main__':
     try:
         bot.start()
     except Exception, e:
+        # TODO a stack trace could be helpfull
         bot.error_logger.error('FATAL : %s', e)
         raise
