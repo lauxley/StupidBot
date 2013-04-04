@@ -1,13 +1,28 @@
-from basebot import BaseTrigger 
-from auth import BaseIdentPlugin, AuthCommand
+from basebot import BaseTrigger
+from auth import BaseIdentPlugin, AuthCommand, BaseAuth
+
+import settings
+
 
 class FreenodeAuth(BaseAuth):
     USER_INFO_CMD = u"ACC %s"
 
+
+# class BotNotAuthedTrigger(BaseTrigger):
+#     REGEXP = r"WHOIS is only available to authed users."
+
+#     def handle(self):
+#         self.bot.error_logger.error(u'The bot was not authentified for some reason ...')
+#         self.bot.auth_plugin.authentify()
+
+
 class BotAuthedTrigger(BaseTrigger):
-    # TODO
-    pass
-  
+    REGEXP = "You are now identified for (?P<username>[^ ]+)."
+
+    def handle(self):
+        self.bot.error_logger.info('Authentified.')
+
+
 class ACCTrigger(BaseTrigger):
     REGEXP = r'(?P<username>[^ ]+) ACC (?P<status>\d[0-3])'
 
@@ -21,13 +36,12 @@ class ACCTrigger(BaseTrigger):
             self.auth.set_auth(username)
 
 
-class Freenode(BaseIdentPlugin):
-    AUTH_BOT = "NickServ"
+class FreenodePlugin(BaseIdentPlugin):
     AUTH_CLASS = FreenodeAuth
 
-    COMMANDS = [ AuthCommand, ]
-    TRIGGERS = [ ACCTrigger ]
-    
+    COMMANDS = [AuthCommand,]
+    TRIGGERS = [ACCTrigger, BotAuthedTrigger]  # , BotNotAuthedTrigger
+
     def authentify(self):
         self.bot.error_logger.info("Authentifying with NickServ ...")
         self.bot.send(settings.AUTH_BOT, "identify %s %s" % (settings.AUTH_LOGIN, settings.AUTH_PASSWORD))

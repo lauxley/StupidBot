@@ -306,7 +306,7 @@ class BaseIrcBot(SingleServerIRCBot):
 
         try:
             if append_plugin_dir:
-                mod = __import__(getattr(settings, 'PLUGINS_DIR', '') + '.' + '.'.join(plugin.split('.')[:-1]), globals(), locals(), [plugin.split('.')[-1]])
+                mod = __import__(getattr(settings, 'PLUGINS_DIR', 'plugins') + '.' + '.'.join(plugin.split('.')[:-1]), globals(), locals(), [plugin.split('.')[-1]])
             else:
                 mod = __import__('.'.join(plugin.split('.')[:-1]), globals(), locals(), [plugin.split('.')[-1]])
         except ImportError, e:
@@ -444,7 +444,7 @@ class BaseIrcBot(SingleServerIRCBot):
         msg_formatter = logging.Formatter('%(asctime)s - %(message)s')
         formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
-        logdir = os.path.join(os.path.dirname(__file__), settings.LOG_DIR, str(datetime.datetime.today().year), str(datetime.datetime.today().month))
+        logdir = os.path.join(os.path.dirname(__file__), getattr(settings, 'LOG_DIR', 'logs'), str(datetime.datetime.today().year), str(datetime.datetime.today().month))
         if not os.path.isdir(logdir):
             os.makedirs(logdir)
 

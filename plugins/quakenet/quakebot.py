@@ -11,7 +11,6 @@ class QAuthTrigger(BaseTrigger):
     def handle(self):
         username = self.match.group('username')
         self.auth = self.bot.auth_plugin.get_auth(username)
-        self.bot.auth_plugin.authentifying = False
 
 
 class NotAuthedTrigger(QAuthTrigger):
@@ -59,18 +58,11 @@ class BotAuthedTrigger(BaseTrigger):
 
 
 class QuakeNetPlugin(BaseIdentPlugin):
-    AUTH_BOT = "Q"
     AUTH_CLASS = QuakenetAuth
 
     COMMANDS = [AuthCommand, ]
     TRIGGERS = [NotAuthedTrigger, AuthedTrigger, UserUnknownTrigger, BotNotAuthedTrigger, BotAuthedTrigger]
 
-    def __init__(self, bot):
-        super(QuakeNetPlugin, self).__init__(bot)
-        self.authentifying = False
-
     def authentify(self):
-        if not self.authentifying:
-            self.authentifying = True
-            self.bot.error_logger.info("Authentifying with Q ...")
-            self.bot.send(settings.AUTH_BOT, "AUTH %s %s" % (settings.AUTH_LOGIN, settings.AUTH_PASSWORD))
+        self.bot.error_logger.info("Authentifying with Q ...")
+        self.bot.send(settings.AUTH_BOT, "AUTH %s %s" % (settings.AUTH_LOGIN, settings.AUTH_PASSWORD))

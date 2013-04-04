@@ -1,32 +1,65 @@
 """
 rename to settings.py once you overrided all the settings
 """
+
+################# base bot #################
+
 NICK = u'your bot name'
 REALNAME = u'the bot birth name'
 SERVER = u'euroserv.fr.quakenet.org'
 START_CHANNELS = ['#testenbois', ]
-ADMINS = ['your_nick', ]
+# DEFAULT_LANG = 'en'
 
-MODULES = [
-    'rand.randbot.RandModule',
-    'meteo.meteobot.MeteoModule',
-    'cleverbot.cleverircbot.CleverBotModule',
-    'currency.currencybot.CurrencyModule',
-    'feed.rssbot.RssModule'
+# use your auth instead of your nick if you use an auth module (recommanded)
+ADMINS = ['your_nick', ] 
+
+# PLUGINS_DIR = "plugins"
+PLUGINS = [
+    'rand.randbot.RandPlugin',
+    'meteo.meteobot.MeteoPlugin',
+    'cleverbot.cleverircbot.CleverBotPlugin',
+    'currency.currencybot.CurrencyPlugin',
+    'feed.rssbot.RssPlugin',
+    'calc.calcbot.CalcPlugin',
+    'eveonline.evebot.EvePlugin',
+    'wikipedia.wikipedia.WikipediaPlugin',
 ]
 
-AUTH_MODULE = "quakenet.quakebot.QuakeNetModule"
+# LOG_DIR = "logs"
+# used by some modules to backup their db
+# BACKUP_DIR = "backups"
 
-AUTH_ENABLE = False
+# MAX_MSG_LEN = 450 
+# TIME_BETWEEN_MSGS = 1
+# FLOOD_PROTECTION_MAX_COMMANDS = 2
+# FLOOD_PROTECTION_TIMER = 4
+# FLOOD_TIMER = 4
+# LEAVE_MESSAGE = u"Bye."
+# RECONNECTION_INTERVAL = 30
+
+################# auth plugin #################
+
+AUTH_PLUGIN = "quakenet.quakebot.QuakeNetModule" # comment this to not use any auth plugin
 AUTH_BOT = "Q@CServe.quakenet.org"
 AUTH_LOGIN = "BotLogin"
 AUTH_PASSWORD = "grütpwd"
 AUTH_EMAIL = "botemail@whatever.com" # not used for now
 
-LOG_DIR = "logs"
-BACKUP_DIR = "backups"
+################# currency plugin #################
 
 DEFAULT_CURRENCY = 'eur'
 OPEN_EXCHANGE_API_ID = u'your_open_exchange_api_id'
 
+################# meteo plugin #################
+
 WORLDWEATHERONLINE_API_KEY = u'your_world_weather_online_api_key'
+# DEFAULT_LOCATION = Paris,france"
+
+################# calc plugin #################
+
+# CALC_TIMEOUT = 2
+
+################# rss plugin #################
+
+# FEED_FETCH_TIME = 2
+# FEED_MAX_ENTRIES = 5
