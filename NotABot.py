@@ -2,7 +2,7 @@
 import datetime
 import argparse
 
-from basebot import BaseIrcBot, HelpCommand, VersionCommand, PingCommand, ReconnectCommand, IssueCommand  # RestartCommand,
+from basebot import BaseIrcBot, HelpCommand, VersionCommand, PingCommand, ReconnectCommand, QuitCommand, IssueCommand  # RestartCommand,
 from auth import BaseAuthTrigger
 
 import settings
@@ -30,7 +30,7 @@ class TrajRandTrigger(BaseAuthTrigger):
 class StupidIrcBot(BaseIrcBot):
     VERSION = u'0.9.6'
 
-    COMMANDS = [HelpCommand, VersionCommand, PingCommand, ReconnectCommand, IssueCommand]  # RestartCommand
+    COMMANDS = [HelpCommand, VersionCommand, PingCommand, ReconnectCommand, IssueCommand, QuitCommand]  # RestartCommand
     TRIGGERS = [TrajRandTrigger,]
 
     def __init__(self, custom_settings=None):

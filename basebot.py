@@ -237,6 +237,15 @@ class IssueCommand(BaseCommand):
         self.bot.connection.send_raw(self.cmd_line)
 
 
+class QuitCommand(BaseCommand):
+    NAME = u"quit"
+    REQUIRE_ADMIN = True
+
+    def get_response(self):
+        self.bot.disconnect()
+        sys.exit(0)
+
+
 class Message():
     """
     only a small helper to help with the msg queue
@@ -298,7 +307,6 @@ class BaseIrcBot(SingleServerIRCBot):
     def quit(self, signal=None, frame=None):
         self.error_logger.warning("Received a SIGINT|SIGKILL|SIGTERM (%s) signal, trying to quit gracefully" % str(signal))
         self.disconnect()
-        time.sleep(2)
         sys.exit(0)
 
     def _load_plugin(self, plugin, append_plugin_dir=True):
