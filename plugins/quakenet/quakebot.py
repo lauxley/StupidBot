@@ -59,10 +59,11 @@ class BotAuthedTrigger(BaseTrigger):
 
 class QuakeNetPlugin(BaseIdentPlugin):
     AUTH_CLASS = QuakenetAuth
+    AUTH_BOT = "Q@CServe.quakenet.org"
 
     COMMANDS = [AuthCommand, ]
     TRIGGERS = [NotAuthedTrigger, AuthedTrigger, UserUnknownTrigger, BotNotAuthedTrigger, BotAuthedTrigger]
 
     def authentify(self):
         self.bot.error_logger.info("Authentifying with Q ...")
-        self.bot.send(settings.AUTH_BOT, "AUTH %s %s" % (settings.AUTH_LOGIN, settings.AUTH_PASSWORD))
+        self.bot.send(self.AUTH_BOT, "AUTH %s %s" % (settings.AUTH_LOGIN, settings.AUTH_PASSWORD))

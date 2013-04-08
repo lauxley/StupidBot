@@ -54,7 +54,6 @@ if __name__ == '__main__':
     try:
         bot.start()
     except Exception, e:
-        # TODO : use argparse to override the settings with a given file
         import traceback
         tb = traceback.format_exc()
         bot.error_logger.error('FATAL : %s\n%s', e, tb)

@@ -38,10 +38,11 @@ class ACCTrigger(BaseTrigger):
 
 class FreenodePlugin(BaseIdentPlugin):
     AUTH_CLASS = FreenodeAuth
+    AUTH_BOT = "NickServ"
 
     COMMANDS = [AuthCommand,]
     TRIGGERS = [ACCTrigger, BotAuthedTrigger]  # , BotNotAuthedTrigger
 
     def authentify(self):
         self.bot.error_logger.info("Authentifying with NickServ ...")
-        self.bot.send(settings.AUTH_BOT, "identify %s %s" % (settings.AUTH_LOGIN, settings.AUTH_PASSWORD))
+        self.bot.send(self.AUTH_BOT, "identify %s %s" % (settings.AUTH_LOGIN, settings.AUTH_PASSWORD))
