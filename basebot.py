@@ -419,7 +419,7 @@ class BaseIrcBot(SingleServerIRCBot):
         while self._check_flood_danger(msg):
             time.sleep(self.TIME_BETWEEN_MSGS)
         self.last_sent.append({'time':datetime.datetime.now(), 'bytes': len(msg.text)})
-        self.msg_logger.info(u'%s - %s: %s', msg.target, settings.NICK, msg.text)
+        self.msg_logger.info(u'>>> %s - %s', msg.target, msg.text)
         self.server.privmsg(msg.target, msg.text)
 
     def _msg_consumer(self):
@@ -499,7 +499,12 @@ class BaseIrcBot(SingleServerIRCBot):
         self.msg_logger.info(u"%s left." % (ev.source.nick))
 
     def log_msg(self, ev):
-        self.msg_logger.info('%s - %s - %s: %s' % (ev.type, ev.target, ev.source.nick, ev.arguments[0]))
+        if ev.type not in ['all_raw_messages', 'motd', 'ping']:
+            try:
+                source = ev.source.nick
+            except AttributeError:
+                source = ev.source
+            self.msg_logger.info('%s - %s - %s: %s' % (ev.type, ev.target, source, ' | '.join(ev.arguments)))
 
     # we dispatch all the handlers to the plugins in case they have something to do
     def _dispatcher(self, serv, ev):
