@@ -38,7 +38,6 @@ class BaseAuth(object):
             if self.timeout_flag:
                 # the bot timed out, netsplit or whatever, he is not responding
                 self.bot.error_logger.error("%s is not responding." % settings.AUTH_BOT)
-                self.timeout_flag = False
                 self.set_auth(None)
 
         self.timeout_flag = True

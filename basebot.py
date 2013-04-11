@@ -499,8 +499,7 @@ class BaseIrcBot(SingleServerIRCBot):
         self.msg_logger.info(u"%s left." % (ev.source.nick))
 
     def log_msg(self, ev):
-        if ev.target:
-            self.msg_logger.info('%s - %s: %s' % (ev.target, ev.source.nick, ev.arguments[0]))
+        self.msg_logger.info('%s - %s - %s: %s' % (ev.type, ev.target, ev.source.nick, ev.arguments[0]))
 
     # we dispatch all the handlers to the plugins in case they have something to do
     def _dispatcher(self, serv, ev):
@@ -538,8 +537,8 @@ class BaseIrcBot(SingleServerIRCBot):
         return True
 
     def global_handler(self, serv, ev):
+        self.log_msg(ev)
         if ev.type in ["pubmsg", "privnotice", "privmsg"]:
-            self.log_msg(ev)
 
             msg = ev.arguments[0]
             if msg[0] == self.COMMAND_PREFIX:
