@@ -201,6 +201,7 @@ class RestartCommand(BaseCommand):
     NAME = u"restart"
     HELP = u"restart the bot."
     REQUIRE_ADMIN = True
+    IS_HIDDEN = True
 
     def process(self):
         # TODO: use boot.sh
@@ -215,6 +216,7 @@ class ReconnectCommand(BaseCommand):
     NAME = u"reconnect"
     HELP = u"reconnect"
     REQUIRE_ADMIN = True
+    IS_HIDDEN = True
 
     def process(self):
         self.bot.error_logger.info("Disconnecting because you asked so ...")
@@ -237,9 +239,25 @@ class IssueCommand(BaseCommand):
         self.bot.connection.send_raw(self.cmd_line)
 
 
+class MsgCommand(BaseCommand):
+    NAME = u"msg"
+    REQUIRE_ADMIN = True
+
+    def parse_options(self):
+        try:
+            self._target = self.options[0]
+            self.msg = ' '.join(self.options[1:])
+        except IndexError, e:
+            raise BadCommandLineException
+
+    def get_response(self):
+        self.bot.send(self._target, self.msg)
+        return u''
+
 class QuitCommand(BaseCommand):
     NAME = u"quit"
     REQUIRE_ADMIN = True
+    IS_HIDDEN = True
 
     def get_response(self):
         self.bot.disconnect()
