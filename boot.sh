@@ -19,6 +19,11 @@ then
     sleep 5
 fi
 
-screen -dmS $SCREEN_NAME python NotABot.py
+if [ $# -gt 0 ]
+then
+    screen -dmS $SCREEN_NAME python NotABot.py --settings=$SUFFIX
+else
+    screen -dmS $SCREEN_NAME python NotABot.py
+fi
 
 echo 'done.'
