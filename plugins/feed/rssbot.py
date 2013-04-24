@@ -32,6 +32,7 @@ class RssFeed(object):
         self.updated = from_sql_dt(row[2])
         self.last_entry = row[3]
 
+        self.server = settings.SERVER
         self.channel = row[4]
         self.title = row[5]
         self.filter = row[6]
@@ -190,7 +191,6 @@ class FeedAddExclude(FeedAddFilter):
     NAME = u"feedexclude"
     REQUIRE_ADMIN = True
     HELP = u"feedexclude FEED_TITLE PATTERN - when fetching new entries from FEED_TITLE, the bot will NOT display the entries matching PATTERN."
-
     RESPONSE = "Exclusion applied for feed %s."
 
     def apply_filter(self, feed):
@@ -263,9 +263,9 @@ class RssPlugin(BaseBotPlugin):
         else:
             self.feed_conn = sqlite3.connect(self.db_file, check_same_thread=False)
 
-        sql = "SELECT ROWID, url, last_updated, last_entry, channel, title, filter, exclude FROM feeds"
+        sql = "SELECT ROWID, url, last_updated, last_entry, channel, title, filter, exclude FROM feeds WHERE server=?"
         cur = self.feed_conn.cursor()
-        for row in cur.execute(sql):
+        for row in cur.execute(sql, [settings.SERVER,]):
             self.feeds.append(RssFeed(self, row))
         cur.close()
 
@@ -280,6 +280,7 @@ class RssPlugin(BaseBotPlugin):
                             url VARCHAR(255) NOT NULL,
                             last_entry VARCHAR(64),
                             last_updated DATETIME,
+                            server VARCHAR(64) NOT NULL,
                             channel VARCHAR(64) NOT NULL,
                             title VARCHAR(64),
                             filter VARCHAR(64),
@@ -319,9 +320,9 @@ class RssPlugin(BaseBotPlugin):
         return feed, created
 
     def _create_feed(self, feed_url, feed_title, last_entry, last_updated, chan):
-        sql = "INSERT INTO feeds (url, last_entry, last_updated, channel, title) VALUES (?,?,?,?,?)"
+        sql = "INSERT INTO feeds (url, last_entry, last_updated, server, channel, title) VALUES (?,?,?,?,?,?)"
         cur = self.feed_conn.cursor()
-        cur.execute(sql, [feed_url, last_entry, last_updated, chan, feed_title])
+        cur.execute(sql, [feed_url, last_entry, last_updated, settings.SERVER, chan, feed_title])
         self.feed_conn.commit()
 
         sql = "SELECT ROWID, url, last_updated, last_entry, channel, title, filter, exclude FROM feeds WHERE url=?"
