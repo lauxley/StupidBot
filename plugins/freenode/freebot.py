@@ -24,7 +24,7 @@ class BotAuthedTrigger(BaseTrigger):
 
 
 class ACCTrigger(BaseTrigger):
-    REGEXP = r'(?P<username>[^ ]+) ACC (?P<status>\d[0-3])'
+    REGEXP = r'(?P<username>[^ ]+) ACC (?P<status>[0-3])'
 
     def handle(self):
         username = self.match.group('username')
