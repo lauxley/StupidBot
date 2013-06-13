@@ -17,23 +17,26 @@ class DefineCommand(BaseCommand):
 
     def split_options(self, arguments):
         super(DefineCommand, self).split_options(arguments)
-        self.index = self.args.get(u'index', 0)
+        self.index = int(self.args.get(u'index', 0))
         self.lang = self.args.get(u'lang', getattr(settings, 'DEFAULT_LANG', 'en'))
         self.query = u" ".join(self.options)
 
     def get_response(self):
-        params = {'action':'opensearch', 'search': self.query, 'format':'xml', 'limit': 1}
+        params = {'action':'opensearch', 'search': self.query, 'format':'xml'}
         request = urllib2.Request(self.WIKI_SEARCH_URL % self.lang + '?' + urllib.urlencode(params))
         try:
             response = urllib2.urlopen(request)
             dom = parseString(response.read())
             name = dom.getElementsByTagName('Text')[self.index].firstChild.wholeText
-            description = dom.getElementsByTagName('Description')[0].firstChild.wholeText
+            description = dom.getElementsByTagName('Description')[self.index].firstChild.wholeText
+            items_count = dom.getElementsByTagName('Item').length
         except (urllib2.URLError, ExpatError, IndexError, ValueError), e:
             self.plugin.bot.error_logger.error('Problem trying to fetch a wikipedia description (%s): %s' % (request.get_full_url(), e))
             return u"Nop."
-
-        return u"%s: %s" % (name, description)
+        
+        resp_count = u"%s(index %s of %d):" % (name, self.index, items_count)
+        resp_desc = u"%s" % description
+        return [resp_count, resp_desc]
 
 
 class WikipediaPlugin(BaseBotPlugin):
