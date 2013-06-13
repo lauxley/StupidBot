@@ -457,8 +457,11 @@ class BaseIrcBot(SingleServerIRCBot):
             self._send(msg)
 
     def send(self, target, msg):
-        if type(msg) not in [list, set]:
+        if not type(msg) in (tuple, list, set):  # we don't use collections.Iterable because a string is an iterable
             msg = msg.split("\n")
+        else:
+            # ok.
+            msg = [i for sub in [s.split("\n") for s in msg] for i in sub]
 
         for m in msg:
             self.msg_queue.put(Message(target, m))
