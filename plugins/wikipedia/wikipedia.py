@@ -19,7 +19,7 @@ class DefineCommand(BaseCommand):
         super(DefineCommand, self).split_options(arguments)
         self.index = self.args.get(u'index', 0)
         self.lang = self.args.get(u'lang', getattr(settings, 'DEFAULT_LANG', 'en'))
-        self.query = u" ".join(self.options)
+        self.query = urllib.quote_plus(u" ".join(self.options))
 
     def get_response(self):
         params = {'action':'opensearch', 'search': self.query, 'format':'xml', 'limit': 1}
