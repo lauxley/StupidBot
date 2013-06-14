@@ -17,7 +17,16 @@ import settings
 
 
 class CompliantDecodingLineBuffer(DecodingLineBuffer):
-    errors = 'replace'
+    def lines(self):
+        lines = [l for l in super(DecodingLineBuffer, self).lines()]
+
+        try:
+            # Note: skipping parent in super to go up one class in the branch (to avoid trying to decode with 'replace')
+            return iter([line.decode('utf-8') for line in lines])
+        except UnicodeDecodeError:
+            return iter([line.decode('latin-1') for line in lines])
+        # fallback
+        return iter([line.decode('utf-8', 'replace') for line in lines])
 
 
 class ImproperlyConfigured(Exception):

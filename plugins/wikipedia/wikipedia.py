@@ -19,7 +19,7 @@ class DefineCommand(BaseCommand):
         super(DefineCommand, self).split_options(arguments)
         self.index = int(self.args.get(u'index', 0))
         self.lang = self.args.get(u'lang', getattr(settings, 'DEFAULT_LANG', 'en'))
-        self.query = urllib.quote_plus(u" ".join(self.options))
+        self.query = " ".join(self.options).encode('utf-8')  # because urllib doesn't like unicode
 
     def get_response(self):
         params = {'action':'opensearch', 'search': self.query, 'format':'xml'}
@@ -33,7 +33,7 @@ class DefineCommand(BaseCommand):
         except (urllib2.URLError, ExpatError, IndexError, ValueError), e:
             self.plugin.bot.error_logger.error('Problem trying to fetch a wikipedia description (%s): %s' % (request.get_full_url(), e))
             return u"Nop."
-        
+
         resp_count = u"%s(index %s of %d):" % (name, self.index, items_count)
         resp_desc = u"%s" % description
         return [resp_count, resp_desc]
