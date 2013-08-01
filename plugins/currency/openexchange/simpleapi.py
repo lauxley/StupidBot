@@ -42,7 +42,7 @@ def get_currencies():
     if data:
         try:
             jd = json.loads(data)
-            return jd.keys()
+            return sorted(jd.keys())
         except ValueError,e:
             raise #pass
     return None
