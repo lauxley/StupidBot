@@ -21,5 +21,5 @@ class Fact(Base):
         if self.type == 'quote':
             return u'%s said: %s' % (self.author, self.text)
         elif self.type == 'date':
-            return u'%s: %s' % (self.date, self.text)
+            return u'%s: %s' % (self.date, self.text.encode('utf8', 'replace'))
         return u'%s' % self.text
