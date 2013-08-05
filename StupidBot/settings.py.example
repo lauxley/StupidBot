@@ -63,3 +63,9 @@ WORLDWEATHERONLINE_API_KEY = u'your_world_weather_online_api_key'
 
 # FEED_FETCH_TIME = 2
 # FEED_MAX_ENTRIES = 5
+
+################ DB ####################
+DB_NAME = "stupidbot"
+DB_USER = "stupidbot"
+DB_PWD = ""
+DB_BACKEND = "mysql://%s:%s@localhost/%s" % (DB_USER, DB_PWD, DB_NAME)  # sqlalchemy dialect

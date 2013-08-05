@@ -2,3 +2,5 @@ irc
 feedparser
 unidecode
 bleach
+
+SQLAlchemy
