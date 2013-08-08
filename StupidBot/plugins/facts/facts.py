@@ -47,8 +47,10 @@ class FactCommand(DbCommand):
                 fact = q.filter(or_(*[self.plugin.SCHEMA.text.like('%%%s%%' % e) for e in c]),
                                 or_(*[self.plugin.SCHEMA.author.like('%%%s%%' % e) for e in c])
                                 ).order_by(func.rand()).first()
-
-        return fact or u"no match"
+        if fact:
+            return repr(fact)
+        else:
+            return u"no match"
 
 
 class ContextTrigger(BaseTrigger):
