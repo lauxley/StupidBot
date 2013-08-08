@@ -25,7 +25,7 @@ class DbMixin(object):
         if not hasattr(settings, 'DB_BACKEND'):
             raise ImproperlyConfigured("A DbMixin plugin needs a DB_BACKEND setting.")
         if not hasattr(self.bot, 'engine') or self.bot.engine is None:
-            self.bot.engine = create_engine(settings.DB_BACKEND, echo=True)
+            self.bot.engine = create_engine(settings.DB_BACKEND, echo=True, pool_recycle=3600)
         if not hasattr(self.bot, 'Session') or self.bot.Session is None:
             self.bot.Session = sessionmaker(bind=self.bot.engine)
 
