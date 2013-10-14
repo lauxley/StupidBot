@@ -78,7 +78,7 @@ class StatsArgsMixin(object):
                     rolls = 100
                 elif re.match(r_date_fr, self.options[i]):
                     dt = datetime.datetime.strptime(self.options[i], '%d%m%Y')
-                    rolls = (datetime.date.today() - dt).days
+                    rolls = (datetime.datetime.today() - dt).days
                 elif self.options[i].isdigit():
                     rolls = int(self.options[i])
                 else:
