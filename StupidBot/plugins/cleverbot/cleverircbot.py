@@ -1,15 +1,17 @@
 #! -*- coding: utf-8 -*-
-import cleverbot
+from cleverbot import Cleverbot
 import settings
 
 from basebot import BaseBotPlugin, BaseTrigger
+
 
 class CleverBotTrigger(BaseTrigger):
     REGEXP = r'(?P<me>%s):?(?P<msg>.*)' % settings.NICK
 
     def process(self):
         # TODO : should be asynchronous
-        self.bot.send(self.ev.target, '%s: %s' % (self.ev.source.nick, self.bot.brain.Ask(self.match.group('msg').encode('ascii', 'replace'))))
+        self.bot.send(self.ev.target, '%s: %s' % (self.ev.source.nick, self.bot.brain.ask(self.match.group('msg').encode('ascii', 'replace'))))
+
 
 class CleverBotPlugin(BaseBotPlugin):
     COMMANDS = []
@@ -17,4 +19,4 @@ class CleverBotPlugin(BaseBotPlugin):
 
     def __init__(self, bot):
         super(CleverBotPlugin, self).__init__(bot)
-        self.bot.brain = cleverbot.Session()
+        self.bot.brain = Cleverbot()
