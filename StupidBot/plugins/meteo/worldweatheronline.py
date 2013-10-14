@@ -5,7 +5,7 @@ from datetime import date, timedelta
 
 import settings
 
-METEO_URL = u'http://free.worldweatheronline.com/feed/weather.ashx?q={q}&format=json&num_of_days=5&key={api_key}'
+METEO_URL = u'http://api.worldweatheronline.com/free/v1/weather.ashx?q={q}&format=json&num_of_days=5&key={api_key}'
 API_KEY = settings.WORLDWEATHERONLINE_API_KEY
 
 
