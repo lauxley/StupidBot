@@ -1,5 +1,6 @@
 #! -*- coding: utf-8 -*-
-from cleverbot import Cleverbot
+#from cleverbot import Cleverbot
+from chatterbotapi import ChatterBotFactory, ChatterBotType
 import settings
 
 from basebot import BaseBotPlugin, BaseTrigger
@@ -10,7 +11,8 @@ class CleverBotTrigger(BaseTrigger):
 
     def process(self):
         # TODO : should be asynchronous
-        self.bot.send(self.ev.target, '%s: %s' % (self.ev.source.nick, self.bot.brain.ask(self.match.group('msg').encode('ascii', 'replace'))))
+        msg = self.bot.brain.think(self.match.group('msg').encode('ascii', 'replace'))
+        self.bot.send(self.ev.target, '%s: %s' % (self.ev.source.nick, msg))
 
 
 class CleverBotPlugin(BaseBotPlugin):
@@ -19,4 +21,6 @@ class CleverBotPlugin(BaseBotPlugin):
 
     def __init__(self, bot):
         super(CleverBotPlugin, self).__init__(bot)
-        self.bot.brain = Cleverbot()
+        factory = ChatterBotFactory()
+        cleverbot = factory.create(ChatterBotType.CLEVERBOT)
+        self.bot.brain = cleverbot.create_session()
