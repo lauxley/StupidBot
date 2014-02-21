@@ -121,7 +121,7 @@ class AllStatsCommand(StatsCommand):
 
 class LadderCommand(BaseCommand, StatsArgsMixin):
     NAME = "ladder"
-    HELP = u"""ladder [today|week|month|year|DDMMYYYY]: display the ordered list of the best randers of the given period."""
+    HELP = u"""ladder [min] [today|week|month|year|DDMMYYYY]: display the ordered list of the best randers of the given period. 'min' is the minimal number of rolls."""
 
     def parse_options(self):
         self._get_stats_args()
