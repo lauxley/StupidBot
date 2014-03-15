@@ -13,7 +13,7 @@ def _get_data(url):
     request = urllib2.Request(url, None, {'Accept-encoding': 'utf8'})
     try:
         response = urllib2.urlopen(request)
-    except urllib2.URLError:
+    except:
         return None
     result = response.read()
     return result
@@ -81,3 +81,5 @@ def get_weather(location, qdate='tomorow'):
 
         except (ValueError, IndexError, KeyError), e:
             return None, e
+    else:
+        return None, "something went wrong but im not sure what."
