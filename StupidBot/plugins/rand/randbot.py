@@ -191,6 +191,9 @@ class GraphCommand(BaseCommand, StatsArgsMixin):
     def parse_options(self):
         self._get_stats_args()
 
+    def _to_js_timestamp(self, date):
+        return int(datetime.datetime.strptime(date[:len('XXXX-XX-XX XX:XX')],'%Y-%m-%d %H:%M').strftime("%s")) * 1000
+
     def process(self):
         """
         var data1 = [
@@ -209,7 +212,8 @@ class GraphCommand(BaseCommand, StatsArgsMixin):
             points = self.bot.rand_db.get_points(user, self.opt_since, self.ev.target)
             if not points:
                 continue
-            d["data"] = [[int(datetime.datetime.strptime(r[0],'%Y-%m-%d %H:%M:%S.%f').strftime("%s")) * 1000, r[1]] for r in points]
+            for r in points:
+                d["data"] = [[self._to_js_timestamp(r[0]), r[1]] for r in points]
             color = self.COLORS[i % len(self.COLORS)]
             d.update({"points": {"fillcolor": color}, "color": color})
             data.append(d)    
