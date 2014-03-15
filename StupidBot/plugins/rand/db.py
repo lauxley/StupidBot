@@ -99,6 +99,15 @@ class RandDb(object):
         cur.execute("DELETE FROM rolls;")
         self.conn.commit()
 
+    def get_points(self, user, dt, chan):
+        cur = self.conn.cursor()
+        if not dt:
+            dt = datetime.datetime(2000, 1, 1)  # ugly
+        sql = "SELECT roll_on, value from rolls WHERE valid=1 AND chan=? AND user=? AND roll_on >=?;"
+        cur.execute(sql, [chan, user, self.sql_dt(dt)])
+        return cur.fetchall()
+            
+
     def get_stats(self, user, dt, chan, allrolls=False):
         cur = self.conn.cursor()
         if not dt:
