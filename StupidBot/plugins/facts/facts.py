@@ -1,7 +1,7 @@
 import re
 
 from sqlalchemy import or_, and_
-from  sqlalchemy.sql.expression import func
+from sqlalchemy.sql.expression import func
 
 from basebot import BaseBotPlugin, BaseIrcBot, BaseTrigger
 from basedb import DbMixin, DbCommand

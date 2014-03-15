@@ -64,6 +64,11 @@ WORLDWEATHERONLINE_API_KEY = u'your_world_weather_online_api_key'
 # FEED_FETCH_TIME = 2
 # FEED_MAX_ENTRIES = 5
 
+################ Rand ##################
+
+RAND_GRAPH_RENDER_DIRECTORY = "/tmp/graph/"
+RAND_GRAPH_BASE_URL = "http://host.domain/path/to/graph/"
+
 ################ DB ####################
 DB_NAME = "stupidbot"
 DB_USER = "stupidbot"

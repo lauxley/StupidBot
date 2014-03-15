@@ -1,8 +1,4 @@
-"""
-TODO:
-* rolls by channel !
-"""
-
+import json
 import random
 import datetime
 import re
@@ -12,6 +8,7 @@ from auth import BaseAuthCommand
 
 from db import RandDb
 
+import settings
 
 class RandCommand(BaseAuthCommand):
     NAME = "rand"
@@ -60,6 +57,7 @@ class StatsArgsMixin(object):
     def _get_stats_args(self):
 
         r_date_fr = r'(?P<day>[0-3][0-9])(?P<month>[0-1][0-9])(?P<year>[0-9]{4})'
+        self.opt_users = []
 
         u = dt = rolls = None
         if len(self.options):
@@ -84,7 +82,7 @@ class StatsArgsMixin(object):
                 else:
                     u = self.options[i]
 
-        self.opt_user = u
+        self.opt_users.append(u)
         self.opt_since = dt
         self.opt_rolls = rolls
 
@@ -97,7 +95,10 @@ class StatsCommand(BaseAuthCommand, StatsArgsMixin):
         self._get_stats_args()
 
     def get_user_from_line(self):
-        return self.opt_user or self.ev.source.nick
+        try:
+            return self.opt_users[0]
+        except IndexError:
+            return self.ev.source.nick
 
     def get_stats(self):
         return self.bot.rand_db.get_stats(self.bot.auth_plugin.get_username(self.user), self.opt_since, self.ev.target, allrolls=False)
@@ -178,8 +179,45 @@ class BackupCommand(BaseCommand):
         self.bot.send(self.get_target(), u"Done.")
 
 
+class GraphCommand(BaseCommand, StatsArgsMixin):
+    NAME = "randgraph"
+    HELP = u"""randgraph name1 [name2 [name3 [...]]] : """
+    DIRECTORY = settings.RAND_GRAPH_RENDER_DIRECTORY
+    BASE_URL = settings.RAND_GRAPH_BASE_URL
+    TEMPLATE = "./templates/graph.html"
+    COLORS = ["#058DC7", "#AA4643", "#B54804"]  # TODO:
+
+    def process(self):
+        """
+        var data1 = [
+        {label: "name1",  data: d1, points: { fillColor: "#058DC7" }, color: '#058DC7'},
+        {label: "name2",  data: d2, points: { fillColor: "#AA4643" }, color: '#AA4643'},
+        ];
+        """
+        data = []
+        if not self.opt_users:
+            self.opt_user.append(self.ev.source.nick)
+        for i, user in enumerate(self.opt_users):
+            d = {}
+            u = self.bot.auth_plugin.get_username(self.user)
+            d["label"] = u
+            points = self.bot.rand_db.get_points(u, self.opt_since, self.ev.target)
+            d["data"] = [[datetime.strptime(r[0], '%Y-%m-%d %H:%M').strftime("%s") * 1000, r[1]] for r in points]
+            color = self.COLORS[i % len(self.COLORS)]
+            d.update({"points": {"fillcolor": color}, "color": color})
+            data.append(d)
+
+        with open(self.TEMPLATE) as template:
+            render = template.read().format({"data": json.dumps(data)})
+        filename = "graph_%s.html" % datetime.strftime(datetime.now(), '%Y%m%d%H%M')
+        with open(sys.path.join(self.DIRECTORY, filename)) as html:
+            html.write(render)
+        self.bot.send(self.get_target(), urllib.basejoin(self.BASE_URL, filename))
+        
+    
+
 class RandPlugin(BaseBotPlugin):
-    COMMANDS = [RandCommand, StatsCommand, AllStatsCommand, LadderCommand, MergeCommand, UsersListCommand, BackupCommand]
+    COMMANDS = [RandCommand, StatsCommand, AllStatsCommand, LadderCommand, MergeCommand, UsersListCommand, BackupCommand, GraphCommand]
 
     def __init__(self, bot):
         super(RandPlugin, self).__init__(bot)
