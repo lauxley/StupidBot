@@ -304,6 +304,7 @@ class BaseIrcBot(SingleServerIRCBot):
     RECONNECTION_INTERVAL = getattr(settings, 'RECONNECTION_INTERVAL', 30)
 
     def __init__(self):
+        self._init_loggers()
         super(BaseIrcBot, self).__init__([(settings.SERVER,),], settings.NICK, settings.REALNAME, reconnection_interval=self.RECONNECTION_INTERVAL)
 
         # used by simple implementation
@@ -315,8 +316,6 @@ class BaseIrcBot(SingleServerIRCBot):
 
         # the map to remember the last user's command time
         self.command_timer_map = {}
-
-        self._init_loggers()
 
         self.plugins = []
         self.commands = {}

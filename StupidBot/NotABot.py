@@ -28,7 +28,7 @@ class TrajRandTrigger(BaseAuthTrigger):
 
 
 class StupidIrcBot(BaseIrcBot):
-    VERSION = u'0.9.6'
+    VERSION = u'0.9.7'
 
     COMMANDS = [HelpCommand, VersionCommand, PingCommand, ReconnectCommand, IssueCommand, QuitCommand, MsgCommand]  # RestartCommand
     TRIGGERS = [TrajRandTrigger,]

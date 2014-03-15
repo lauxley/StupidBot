@@ -21,7 +21,7 @@ class RandDb(object):
     db_file = "rand.db"
 
     def _connect(self):
-        self.conn = sqlite3.connect(self.db_file)
+        self.conn = sqlite3.connect(self.db_file, check_same_thread=False)
 
     def __init__(self):
         if not os.path.isfile(self.db_file):

@@ -1,3 +1,5 @@
+import urllib
+import os.path
 import json
 import random
 import datetime
@@ -81,8 +83,7 @@ class StatsArgsMixin(object):
                     rolls = int(self.options[i])
                 else:
                     u = self.options[i]
-
-        self.opt_users.append(u)
+                    self.opt_users.append(u)
         self.opt_since = dt
         self.opt_rolls = rolls
 
@@ -187,6 +188,9 @@ class GraphCommand(BaseCommand, StatsArgsMixin):
     TEMPLATE = "./templates/graph.html"
     COLORS = ["#058DC7", "#AA4643", "#B54804"]  # TODO:
 
+    def parse_options(self):
+        self._get_stats_args()
+
     def process(self):
         """
         var data1 = [
@@ -195,26 +199,32 @@ class GraphCommand(BaseCommand, StatsArgsMixin):
         ];
         """
         data = []
+
         if not self.opt_users:
-            self.opt_user.append(self.ev.source.nick)
+            self.opt_users.append(self.ev.source.nick)
+
         for i, user in enumerate(self.opt_users):
             d = {}
-            u = self.bot.auth_plugin.get_username(self.user)
-            d["label"] = u
-            points = self.bot.rand_db.get_points(u, self.opt_since, self.ev.target)
-            d["data"] = [[datetime.strptime(r[0], '%Y-%m-%d %H:%M').strftime("%s") * 1000, r[1]] for r in points]
+            d["label"] = user
+            points = self.bot.rand_db.get_points(user, self.opt_since, self.ev.target)
+            if not points:
+                continue
+            d["data"] = [[int(datetime.datetime.strptime(r[0],'%Y-%m-%d %H:%M:%S.%f').strftime("%s")) * 1000, r[1]] for r in points]
             color = self.COLORS[i % len(self.COLORS)]
             d.update({"points": {"fillcolor": color}, "color": color})
-            data.append(d)
+            data.append(d)    
 
-        with open(self.TEMPLATE) as template:
-            render = template.read().format({"data": json.dumps(data)})
-        filename = "graph_%s.html" % datetime.strftime(datetime.now(), '%Y%m%d%H%M')
-        with open(sys.path.join(self.DIRECTORY, filename)) as html:
-            html.write(render)
-        self.bot.send(self.get_target(), urllib.basejoin(self.BASE_URL, filename))
-        
-    
+        if not data:
+            self.bot.send(self.get_target(), u"No data.")
+        else:
+            with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), self.TEMPLATE), 'r') as template:
+                r = template.read()
+                render = r.replace("{data}", json.dumps(data))
+            filename = "graph_%s.html" % datetime.datetime.now().strftime('%Y%m%d%H%M')
+            with open(os.path.join(self.DIRECTORY, filename), 'w+') as html:
+                html.write(render)
+            self.bot.send(self.get_target(), urllib.basejoin(self.BASE_URL, filename))
+
 
 class RandPlugin(BaseBotPlugin):
     COMMANDS = [RandCommand, StatsCommand, AllStatsCommand, LadderCommand, MergeCommand, UsersListCommand, BackupCommand, GraphCommand]
