@@ -184,8 +184,8 @@ class BackupCommand(BaseCommand):
 class GraphCommand(BaseCommand, StatsArgsMixin):
     NAME = "randgraph"
     HELP = u"""randgraph name1 [name2 [name3 [...]]] : """
-    DIRECTORY = settings.RAND_GRAPH_RENDER_DIRECTORY
-    BASE_URL = settings.RAND_GRAPH_BASE_URL
+    DIRECTORY = getattr(settings, 'RAND_GRAPH_RENDER_DIRECTORY', '/tmp/')
+    BASE_URL = getattr(settings, 'RAND_GRAPH_BASE_URL', 'http://localhost/')
     TEMPLATE = "./templates/graph.html"
     COLORS = ["#058DC7", "#AA4643", "#B54804"]  # TODO:
 
@@ -232,7 +232,7 @@ class GraphCommand(BaseCommand, StatsArgsMixin):
 
 
 class RandPlugin(BaseBotPlugin):
-    COMMANDS = [RandCommand, StatsCommand, AllStatsCommand, LadderCommand, MergeCommand, UsersListCommand, BackupCommand, GraphCommand]
+    COMMANDS = [RandCommand, StatsCommand, AllStatsCommand, LadderCommand, MergeCommand, UsersListCommand, BackupCommand] #GraphCommand
 
     def __init__(self, bot):
         super(RandPlugin, self).__init__(bot)
