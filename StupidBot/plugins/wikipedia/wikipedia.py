@@ -34,7 +34,7 @@ class DefineCommand(BaseCommand):
             self.plugin.bot.error_logger.error('Problem trying to fetch a wikipedia description (%s): %s' % (request.get_full_url(), e))
             return u"Nop."
 
-        resp_count = u"%s(index %s of %d):" % (name, self.index, items_count)
+        resp_count = u"%s(index %s of %d):" % (name, self.index + 1, items_count)
         resp_desc = u"%s" % description
         return [resp_count, resp_desc]
 
