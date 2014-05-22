@@ -12,6 +12,7 @@ from db import RandDb
 
 import settings
 
+
 class RandCommand(BaseAuthCommand):
     NAME = "rand"
     HELP = u"""rand [[MIN] MAX|El1 El2 El3 ...]: Roll a number between MIN (default 1) and MAX (default 100), only one rand between 1 and 100 per day is taken into account in stats. Or randomize an element in the given list."""
@@ -216,7 +217,7 @@ class GraphCommand(BaseCommand, StatsArgsMixin):
                 d["data"] = [[self._to_js_timestamp(r[0]), r[1]] for r in points]
             color = self.COLORS[i % len(self.COLORS)]
             d.update({"points": {"fillcolor": color}, "color": color})
-            data.append(d)    
+            data.append(d)
 
         if not data:
             self.bot.send(self.get_target(), u"No data.")

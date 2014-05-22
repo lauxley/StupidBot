@@ -17,7 +17,7 @@ class DefineCommand(BaseCommand):
 
     def split_options(self, arguments):
         super(DefineCommand, self).split_options(arguments)
-        self.index = int(self.args.get(u'index', 0))
+        self.index = int(self.args.get(u'index', 1)) - 1
         self.lang = self.args.get(u'lang', getattr(settings, 'DEFAULT_LANG', 'en'))
         self.query = " ".join(self.options).encode('utf-8')  # because urllib doesn't like unicode
 
