@@ -38,6 +38,8 @@ class RandCommand(BaseAuthCommand):
                 try:
                     self.min = int(self.options[0])
                     self.max = int(self.options[1])
+                    if self.min > self.max:
+                        self.min, self.max = self.max, self.min
                 except ValueError:
                     self.list = True
             else:
