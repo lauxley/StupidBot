@@ -59,7 +59,7 @@ class RandCommand(BaseAuthCommand):
 class StatsArgsMixin(object):
     def _get_stats_args(self):
 
-        r_date_fr = r'(?P<day>[0-3][0-9])(?P<month>[0-1][0-9])(?P<year>[0-9]{4})'
+        r_date = r'^(?P<year>[0-9]{4})-(?P<month>[0-1][0-9])-(?P<day>[0-3][0-9])$'
         self.opt_users = []
 
         u = dt = rolls = None
@@ -77,8 +77,8 @@ class StatsArgsMixin(object):
                 elif self.options[i] == "year":
                     dt = datetime.date.today() - datetime.timedelta(days=365)
                     rolls = 100
-                elif re.match(r_date_fr, self.options[i]):
-                    dt = datetime.datetime.strptime(self.options[i], '%d%m%Y')
+                elif re.match(r_date, self.options[i]):
+                    dt = datetime.datetime.strptime(self.options[i], '%Y-%m-%d')
                     rolls = (datetime.datetime.today() - dt).days
                 elif self.options[i].isdigit():
                     rolls = int(self.options[i])
