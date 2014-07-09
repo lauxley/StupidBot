@@ -53,7 +53,7 @@ class RandCommand(BaseAuthCommand):
             try:
                 roll = random.randint(self.min, self.max)
             except ValueError:
-                raise BadCommandLineException
+                return "Nop."
             user = self.bot.auth_plugin.get_username(self.user)
             if self.min == self.DEFAULT_MIN and self.max == self.DEFAULT_MAX:
                 self.bot.rand_db.add_entry(datetime.datetime.now(), user, roll, self.ev.target)
