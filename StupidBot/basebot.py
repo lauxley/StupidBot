@@ -10,7 +10,7 @@ from Queue import Queue
 import datetime
 from logging import handlers
 
-from irc.client import DecodingLineBuffer
+from irc.buffer import DecodingLineBuffer
 from irc.bot import SingleServerIRCBot
 
 import settings
@@ -322,7 +322,7 @@ class BaseIrcBot(SingleServerIRCBot):
         self.triggers = {}
 
         self._init_plugins()
-        self.ircobj.add_global_handler("all_events", self.global_handler)
+        self.reactor.add_global_handler("all_events", self.global_handler)
 
         # catch to disconnect gracefully..
         signal.signal(signal.SIGINT, self.quit)
