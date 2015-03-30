@@ -73,7 +73,7 @@ class BaseCommand(object):
         self.ev = ev
 
         self.split_options(ev.arguments)
-        self.parse_options()  # the exception will be catched by the main loop
+        self.parse_options()  # BadCommandLineException is catched in the main loop
 
         self.bot.error_logger.info('Command issued by %s : %s' % (ev.source, self.NAME))
 
